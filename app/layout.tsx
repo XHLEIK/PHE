@@ -5,8 +5,8 @@ import "../styles/globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "APPSC Grievance Redressal System",
-  description: "Official portal for APPSC grievance redressal and candidate complaints.",
+  title: "Samadhan AI — State Grievance Services",
+  description: "Official grievance redressal portal of the Arunachal Pradesh Public Service Commission. AI-assisted complaint routing and resolution.",
 };
 
 export default function RootLayout({

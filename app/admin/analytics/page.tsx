@@ -1,298 +1,365 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/admin/dashboard/Sidebar';
 import Topbar from '@/components/admin/dashboard/Topbar';
-import { getDashboardStats } from '@/lib/api-client';
-import { getDevAnalyticsStats, getDevBarChartValues, getDevDepartmentLoads, getDevTimeline } from '@/lib/dev-fixtures';
+import { getDashboardStats, getMe } from '@/lib/api-client';
 import { 
   TrendingUp, 
   BarChart3, 
   PieChart, 
-  Calendar, 
-  Terminal, 
-  BrainCircuit, 
-  ArrowUpRight, 
-  ArrowDownRight,
   CheckCircle2,
   Clock,
-  Search,
-  ChevronRight
+  BrainCircuit,
+  AlertTriangle,
+  FileText,
+  Loader2,
+  ShieldAlert,
 } from 'lucide-react';
 
-interface AnalyticsStat {
-  label: string;
-  value: string;
-  trend: string;
-  color: string;
+interface OverviewData {
+  total: number;
+  pending: number;
+  triage: number;
+  inProgress: number;
+  resolved: number;
+  closed: number;
+  escalated: number;
+  deferred: number;
+  recentLast24h: number;
+  resolutionRate: string;
 }
 
-interface DeptLoad {
-  label: string;
-  color: string;
-  val: string;
-}
-
-interface TimelineEntry {
+interface DeptStat {
   id: string;
-  node: string;
-  time: string;
-  status: string;
+  label: string;
+  total: number;
+  pending: number;
+  resolved: number;
+  deferred: number;
 }
+
+interface AnalysisData {
+  queued: number;
+  processing: number;
+  completed: number;
+  deferred: number;
+}
+
+interface Priorities {
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+}
+
+const PIE_COLORS = ['#b45309', '#3b82f6', '#10b981', '#6366f1', '#f43f5e', '#eab308'];
+const BAR_COLORS = ['#b45309', '#d97706', '#f59e0b', '#fbbf24', '#fcd34d', '#fde68a', '#fef3c7'];
 
 const AnalyticsPage = () => {
-  const [stats, setStats] = useState<AnalyticsStat[]>([]);
-  const [barValues, setBarValues] = useState<number[]>([]);
-  const [deptLoads, setDeptLoads] = useState<DeptLoad[]>([]);
-  const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
+  const router = useRouter();
+  const [overview, setOverview] = useState<OverviewData | null>(null);
+  const [depts, setDepts] = useState<DeptStat[]>([]);
+  const [analysis, setAnalysis] = useState<AnalysisData | null>(null);
+  const [priorities, setPriorities] = useState<Priorities | null>(null);
   const [loading, setLoading] = useState(true);
+  const [animated, setAnimated] = useState(false);
+  const [accessDenied, setAccessDenied] = useState(false);
 
   const fetchAnalytics = useCallback(async () => {
     try {
+      // Check role first
+      const meResult = await getMe();
+      if (meResult.success && meResult.data) {
+        const role = (meResult.data.user as Record<string, unknown>).role as string;
+        if (role === 'staff') {
+          setAccessDenied(true);
+          setLoading(false);
+          return;
+        }
+      }
+
       const result = await getDashboardStats();
       if (result.success && result.data) {
-        const overview = result.data.overview as Record<string, number>;
-        setStats([
-          { label: 'Issues Resolved', value: String(overview.resolved ?? 0), trend: `${overview.resolutionRate ?? 0}%`, color: 'emerald' },
-          { label: 'Avg Triage Time', value: '—', trend: 'N/A', color: 'blue' },
-          { label: 'AI Accuracy', value: '—', trend: 'N/A', color: 'purple' },
-          { label: 'Network Uptime', value: '99.9%', trend: 'STABLE', color: 'emerald' },
-        ]);
-        // Department loads from real data
-        if (result.data.departments && result.data.departments.length > 0) {
-          const colors = ['bg-emerald-500', 'bg-blue-500', 'bg-slate-700', 'bg-purple-500', 'bg-rose-500'];
-          const total = result.data.departments.reduce((s, d) => s + d.count, 0);
-          setDeptLoads(result.data.departments.slice(0, 4).map((d, i) => ({
-            label: d.department || 'Other',
-            color: colors[i % colors.length],
-            val: total > 0 ? `${Math.round((d.count / total) * 100)}%` : '0%',
-          })));
-        } else {
-          setDeptLoads(getDevDepartmentLoads());
-        }
-      } else {
-        setStats(getDevAnalyticsStats());
-        setDeptLoads(getDevDepartmentLoads());
+        setOverview(result.data.overview as unknown as OverviewData);
+        setDepts((result.data.departments || []) as unknown as DeptStat[]);
+        setAnalysis(result.data.analysis as unknown as AnalysisData);
+        setPriorities(result.data.priorities as unknown as Priorities);
       }
     } catch {
-      setStats(getDevAnalyticsStats());
-      setDeptLoads(getDevDepartmentLoads());
+      // Stats unavailable
     } finally {
-      setBarValues(getDevBarChartValues());
-      setTimeline(getDevTimeline());
       setLoading(false);
+      // Trigger animation after data loads
+      setTimeout(() => setAnimated(true), 100);
     }
   }, []);
 
   useEffect(() => { fetchAnalytics(); }, [fetchAnalytics]);
+
+  // Status pie data
+  const statusData = overview ? [
+    { label: 'Pending', value: overview.pending, color: PIE_COLORS[0] },
+    { label: 'In Progress', value: overview.inProgress + overview.triage, color: PIE_COLORS[1] },
+    { label: 'Resolved', value: overview.resolved, color: PIE_COLORS[2] },
+    { label: 'Closed', value: overview.closed, color: PIE_COLORS[3] },
+    { label: 'Escalated', value: overview.escalated, color: PIE_COLORS[4] },
+    { label: 'Deferred', value: overview.deferred, color: PIE_COLORS[5] },
+  ].filter(s => s.value > 0) : [];
+
+  const statusTotal = statusData.reduce((s, d) => s + d.value, 0);
+
+  // Compute pie chart offsets
+  let cumulativePercent = 0;
+  const pieSlices = statusData.map(s => {
+    const percent = statusTotal > 0 ? s.value / statusTotal : 0;
+    const startAngle = cumulativePercent * 360;
+    cumulativePercent += percent;
+    return { ...s, percent, startAngle };
+  });
+
+  // Department bar chart — top 10 sorted by total
+  const topDepts = [...depts].sort((a, b) => b.total - a.total).slice(0, 10);
+  const maxDeptCount = topDepts.length > 0 ? Math.max(...topDepts.map(d => d.total)) : 1;
+
+  // Priority data
+  const priorityData = priorities ? [
+    { label: 'Critical', value: priorities.critical, color: 'bg-rose-500' },
+    { label: 'High', value: priorities.high, color: 'bg-amber-500' },
+    { label: 'Medium', value: priorities.medium, color: 'bg-blue-500' },
+    { label: 'Low', value: priorities.low, color: 'bg-emerald-500' },
+  ] : [];
+
+  const totalPriority = priorityData.reduce((s, d) => s + d.value, 0);
+
   return (
-    <div className="min-h-screen bg-[#0F172A] flex font-sans">
+    <div className="min-h-screen bg-[#faf7f0] flex font-sans">
       <Sidebar />
       
       <div className="flex-1 lg:ml-64 flex flex-col min-h-screen overflow-x-hidden">
         <Topbar />
         
-        <main className="p-6 md:p-10 space-y-10">
-          {/* Header Section */}
-          <div className="flex justify-between items-end">
-            <div>
-              <h1 className="text-3xl font-black text-white tracking-tight uppercase italic">Kernel_Analytics</h1>
-              <p className="text-[11px] font-bold text-emerald-500 uppercase tracking-[0.2em] mt-2">IT Grievance Vector Analysis & Node Performance</p>
-            </div>
-            
-            <div className="flex items-center gap-3">
-               <div className="relative group">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600" size={14} />
-                  <input type="text" placeholder="Search Metrics..." className="pl-9 pr-4 py-2 bg-slate-900 border border-white/5 rounded-xl text-[10px] font-black uppercase tracking-widest text-emerald-500 focus:outline-none focus:border-emerald-500/50 transition-all w-48" />
-               </div>
-               <button className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 border border-white/5 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-all text-slate-400 shadow-xl">
-                 <Calendar size={14} className="text-emerald-500" />
-                 T-30 Days Range
-               </button>
-            </div>
+        <main className="p-6 md:p-8 space-y-8">
+          {/* Header */}
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Analytics</h1>
+            <p className="text-sm text-slate-500 mt-1">Real-time grievance analytics and performance metrics</p>
           </div>
 
-          {/* TOP ROW: IMPACT STATS */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {loading ? (
-              Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="glass-card p-6 rounded-[2rem] animate-pulse h-32" />
-              ))
-            ) : (
-              stats.map((stat, i) => {
-                const icons = [CheckCircle2, Clock, BrainCircuit, Terminal];
-                const Icon = icons[i] ?? CheckCircle2;
-                return (
-                  <div key={stat.label} className="glass-card p-6 rounded-[2rem] group hover:scale-[1.02] transition-all duration-300" style={{ animationDelay: `${i * 100}ms` }}>
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="p-3 bg-slate-950 rounded-2xl border border-white/5 transition-all">
-                        <Icon size={20} className={stat.color === 'emerald' ? 'text-emerald-500' : stat.color === 'blue' ? 'text-blue-500' : 'text-purple-500'} />
-                      </div>
-                      <span className={`text-[10px] font-black px-2 py-1 rounded-lg ${stat.trend.startsWith('+') ? 'text-emerald-400 bg-emerald-500/5' : stat.trend.startsWith('-') ? 'text-rose-400 bg-rose-500/5' : 'text-emerald-400 bg-emerald-500/5'}`}>
-                        {stat.trend}
-                      </span>
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 size={32} className="animate-spin text-amber-700" />
+            </div>
+          ) : accessDenied ? (
+            <div className="bg-white border border-slate-200 rounded-xl p-12 text-center">
+              <ShieldAlert size={48} className="text-rose-400 mx-auto mb-4" />
+              <h2 className="text-lg font-semibold text-slate-800 mb-2">Access Restricted</h2>
+              <p className="text-sm text-slate-500 mb-4">Analytics is only available to Head Administrators and Department Admins.</p>
+              <button onClick={() => router.push('/admin/dashboard')} className="text-sm text-amber-700 hover:underline">← Back to Dashboard</button>
+            </div>
+          ) : (
+            <>
+              {/* Summary Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                {[
+                  { label: 'Total', value: overview?.total ?? 0, icon: FileText, color: 'text-amber-700', bg: 'bg-amber-100' },
+                  { label: 'Pending', value: overview?.pending ?? 0, icon: Clock, color: 'text-blue-700', bg: 'bg-blue-100' },
+                  { label: 'Resolved', value: overview?.resolved ?? 0, icon: CheckCircle2, color: 'text-emerald-700', bg: 'bg-emerald-100' },
+                  { label: 'Escalated', value: overview?.escalated ?? 0, icon: AlertTriangle, color: 'text-rose-700', bg: 'bg-rose-100' },
+                  { label: 'Deferred', value: overview?.deferred ?? 0, icon: BrainCircuit, color: 'text-amber-700', bg: 'bg-amber-100' },
+                  { label: 'Last 24h', value: overview?.recentLast24h ?? 0, icon: TrendingUp, color: 'text-purple-700', bg: 'bg-purple-100' },
+                ].map(card => (
+                  <div key={card.label} className="bg-white border border-slate-200 p-4 rounded-xl">
+                    <div className={`p-1.5 rounded-lg ${card.bg} w-fit mb-2`}>
+                      <card.icon size={14} className={card.color} />
                     </div>
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">{stat.label}</p>
-                    <h3 className="text-2xl font-black text-white tracking-tighter italic">{stat.value}</h3>
+                    <p className="text-xs text-slate-500">{card.label}</p>
+                    <h3 className="text-xl font-bold text-slate-900">{card.value}</h3>
                   </div>
-                );
-              })
-            )}
-          </div>
+                ))}
+              </div>
 
-          {/* MAIN GRID: CHARTS */}
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-            
-            {/* Animated Bar Chart (2/3) */}
-            <div className="xl:col-span-2 glass-card p-8 rounded-[2.5rem] relative overflow-hidden group">
-               <div className="flex items-center justify-between mb-10">
-                  <h3 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-3">
-                    <TrendingUp size={18} className="text-emerald-500" />
-                    Node Grievance Volume
+              {/* Resolution Rate Banner */}
+              <div className="bg-amber-700 text-white p-6 rounded-xl flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                    <TrendingUp size={24} />
+                  </div>
+                  <div>
+                    <p className="text-sm text-amber-100">Overall Resolution Rate</p>
+                    <h3 className="text-3xl font-bold">{overview?.resolutionRate || '0%'}</h3>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-amber-100">AI Completion</p>
+                  <h3 className="text-2xl font-bold">
+                    {analysis ? Math.round(((analysis.completed) / Math.max(analysis.completed + analysis.deferred + analysis.queued + analysis.processing, 1)) * 100) : 0}%
                   </h3>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                      <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Successful</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-slate-700 rounded-full"></div>
-                      <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Pending</span>
-                    </div>
-                  </div>
-               </div>
-               
-               <div className="h-72 w-full flex items-end justify-between px-4 pb-2 relative">
-                  {/* Grid Lines */}
-                  <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-[0.03]">
-                    {[1,2,3,4,5].map(i => <div key={i} className="w-full h-px bg-white"></div>)}
-                  </div>
+                </div>
+              </div>
+
+              {/* Charts Row */}
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                {/* Status Pie Chart */}
+                <div className="bg-white border border-slate-200 p-6 rounded-xl">
+                  <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-6">
+                    <PieChart size={16} className="text-blue-600" />
+                    Complaint Status Distribution
+                  </h3>
                   
-                  {barValues.map((h, i) => (
-                    <div key={i} className="relative group/bar flex flex-col items-center w-full max-w-[40px]">
-                      <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-white text-slate-900 text-[10px] font-black px-2 py-1 rounded opacity-0 group-hover/bar:opacity-100 transition-all pointer-events-none z-10">
-                        {h}k
+                  {statusTotal === 0 ? (
+                    <div className="text-center py-12 text-slate-400 text-sm">No data available</div>
+                  ) : (
+                    <div className="flex items-center gap-8">
+                      <div className="relative flex items-center justify-center" style={{ width: 180, height: 180 }}>
+                        <svg width="180" height="180" viewBox="0 0 100 100" className="transform -rotate-90">
+                          {pieSlices.map((slice, i) => {
+                            const circumference = 2 * Math.PI * 38;
+                            const dashLen = slice.percent * circumference;
+                            const dashOffset = -(pieSlices.slice(0, i).reduce((s, p) => s + p.percent, 0)) * circumference;
+                            return (
+                              <circle
+                                key={slice.label}
+                                cx="50" cy="50" r="38"
+                                fill="transparent"
+                                stroke={slice.color}
+                                strokeWidth="12"
+                                strokeDasharray={`${animated ? dashLen : 0} ${circumference}`}
+                                strokeDashoffset={dashOffset}
+                                style={{ transition: 'stroke-dasharray 1s ease-out' }}
+                              />
+                            );
+                          })}
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                          <p className="text-2xl font-bold text-slate-900">{statusTotal}</p>
+                          <p className="text-[10px] text-slate-400">Total</p>
+                        </div>
                       </div>
-                      <div 
-                        className="w-full bg-slate-800 rounded-t-lg transition-all duration-[1.5s] ease-out relative overflow-hidden"
-                        style={{ height: `${h}%`, transitionDelay: `${i * 50}ms` }}
-                      >
-                        <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-emerald-600 to-emerald-400 opacity-80" style={{ height: '70%' }}></div>
+                      <div className="flex-1 space-y-2">
+                        {pieSlices.map(s => (
+                          <div key={s.label} className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: s.color }}></div>
+                              <span className="text-xs text-slate-600">{s.label}</span>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-xs font-semibold text-slate-900">{s.value}</span>
+                              <span className="text-[10px] text-slate-400 ml-1">({Math.round(s.percent * 100)}%)</span>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  ))}
-               </div>
-               <div className="mt-6 flex justify-between text-[9px] font-black text-slate-600 uppercase tracking-[0.3em] px-2">
-                  <span>JAN</span><span>MAR</span><span>MAY</span><span>JUL</span><span>SEP</span><span>NOV</span>
-               </div>
-            </div>
+                  )}
+                </div>
 
-            {/* Animated Pie Chart (1/3) */}
-            <div className="glass-card p-8 rounded-[2.5rem] flex flex-col justify-between">
-               <h3 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-3 mb-10">
-                 <PieChart size={18} className="text-blue-500" />
-                 Department Load
-               </h3>
-               
-               <div className="relative flex items-center justify-center py-10">
-                  <svg width="200" height="200" viewBox="0 0 100 100" className="transform -rotate-90">
-                    {/* Circle 1: Background */}
-                    <circle cx="50" cy="50" r="40" fill="transparent" stroke="currentColor" strokeWidth="8" className="text-slate-900" />
-                    {/* Segment 1: Exam (45%) */}
-                    <circle 
-                      cx="50" cy="50" r="40" fill="transparent" 
-                      stroke="rgb(16 185 129)" strokeWidth="10" 
-                      strokeDasharray="251.2" 
-                      strokeDashoffset={251.2 - (251.2 * 0.45)} 
-                      className="transition-all duration-[2s] ease-in-out hover:stroke-emerald-400 cursor-pointer"
-                    />
-                    {/* Segment 2: Finance (25%) - offset starts after 45% */}
-                    <circle 
-                      cx="50" cy="50" r="40" fill="transparent" 
-                      stroke="rgb(59 130 246)" strokeWidth="10" 
-                      strokeDasharray="251.2" 
-                      strokeDashoffset={251.2 - (251.2 * 0.25)} 
-                      style={{ transformOrigin: 'center', transform: `rotate(${360 * 0.45}deg)` }}
-                      className="transition-all duration-[2s] ease-in-out hover:stroke-blue-400 cursor-pointer"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                    <p className="text-3xl font-black text-white tracking-tighter">84%</p>
-                    <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Active_Cap</p>
+                {/* Priority Distribution */}
+                <div className="bg-white border border-slate-200 p-6 rounded-xl">
+                  <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-6">
+                    <AlertTriangle size={16} className="text-amber-700" />
+                    Priority Distribution
+                  </h3>
+                  
+                  {totalPriority === 0 ? (
+                    <div className="text-center py-12 text-slate-400 text-sm">No data available</div>
+                  ) : (
+                    <div className="space-y-4">
+                      {priorityData.map(p => {
+                        const pct = totalPriority > 0 ? Math.round((p.value / totalPriority) * 100) : 0;
+                        return (
+                          <div key={p.label}>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-sm text-slate-700 font-medium">{p.label}</span>
+                              <span className="text-sm font-semibold text-slate-900">{p.value} <span className="text-xs text-slate-400">({pct}%)</span></span>
+                            </div>
+                            <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full ${p.color} rounded-full transition-all duration-1000 ease-out`}
+                                style={{ width: animated ? `${pct}%` : '0%' }}
+                              ></div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* AI Analysis Stats */}
+                  {analysis && (
+                    <div className="mt-6 pt-6 border-t border-slate-100">
+                      <h4 className="text-xs font-semibold text-slate-500 mb-3 flex items-center gap-1">
+                        <BrainCircuit size={12} /> AI Analysis Status
+                      </h4>
+                      <div className="grid grid-cols-4 gap-2">
+                        {[
+                          { label: 'Completed', value: analysis.completed, color: 'text-emerald-700' },
+                          { label: 'Queued', value: analysis.queued, color: 'text-blue-700' },
+                          { label: 'Processing', value: analysis.processing, color: 'text-amber-700' },
+                          { label: 'Deferred', value: analysis.deferred, color: 'text-rose-700' },
+                        ].map(a => (
+                          <div key={a.label} className="text-center">
+                            <p className={`text-lg font-bold ${a.color}`}>{a.value}</p>
+                            <p className="text-[10px] text-slate-400">{a.label}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Department Bar Chart — Full Width */}
+              <div className="bg-white border border-slate-200 p-6 rounded-xl">
+                <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-6">
+                  <BarChart3 size={16} className="text-amber-700" />
+                  Complaints by Department
+                  <span className="text-xs text-slate-400 font-normal ml-2">(Top {topDepts.length})</span>
+                </h3>
+                
+                {topDepts.length === 0 ? (
+                  <div className="text-center py-12 text-slate-400 text-sm">No department data available</div>
+                ) : (
+                  <div className="space-y-3">
+                    {topDepts.map((dept, i) => {
+                      const pct = maxDeptCount > 0 ? (dept.total / maxDeptCount) * 100 : 0;
+                      const resolvedPct = dept.total > 0 ? (dept.resolved / dept.total) * 100 : 0;
+                      return (
+                        <div key={dept.id} className="group">
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-[10px] text-slate-400 w-5 text-right shrink-0">#{i + 1}</span>
+                              <span className="text-sm text-slate-700 truncate">{dept.label || dept.id}</span>
+                            </div>
+                            <div className="flex items-center gap-3 shrink-0 ml-2">
+                              <span className="text-xs text-slate-400">{dept.resolved} resolved</span>
+                              <span className="text-sm font-semibold text-slate-900">{dept.total}</span>
+                            </div>
+                          </div>
+                          <div className="h-6 w-full bg-slate-50 rounded-lg overflow-hidden relative">
+                            <div
+                              className="h-full bg-amber-200 rounded-lg transition-all duration-1000 ease-out relative"
+                              style={{ width: animated ? `${pct}%` : '0%' }}
+                            >
+                              <div
+                                className="absolute top-0 left-0 h-full bg-amber-500 rounded-lg transition-all duration-1000 ease-out"
+                                style={{ width: `${resolvedPct}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div className="flex items-center gap-4 mt-2 text-[10px] text-slate-400">
+                      <div className="flex items-center gap-1.5"><div className="w-3 h-2 bg-amber-500 rounded-sm"></div> Resolved</div>
+                      <div className="flex items-center gap-1.5"><div className="w-3 h-2 bg-amber-200 rounded-sm"></div> Total</div>
+                    </div>
                   </div>
-               </div>
-
-               <div className="space-y-3 mt-10">
-                  {deptLoads.map(item => (
-                    <div key={item.label} className="flex items-center justify-between group cursor-pointer">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-2 h-2 rounded-full ${item.color} group-hover:scale-125 transition-transform`}></div>
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{item.label}</span>
-                      </div>
-                      <span className="text-[10px] font-black text-white tabular-nums">{item.val}</span>
-                    </div>
-                  ))}
-               </div>
-            </div>
-
-          </div>
-
-          {/* LOWER GRID: TRENDS & RESOLUTION LOG */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            
-            {/* AI Advisory Panel */}
-            <div className="bg-emerald-600 p-10 rounded-[2.5rem] text-white shadow-2xl shadow-emerald-500/20 relative overflow-hidden group">
-               <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:scale-110 transition-transform duration-1000"></div>
-               <div className="relative z-10 flex flex-col h-full justify-between">
-                 <div>
-                   <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center mb-8 border border-white/20">
-                      <BrainCircuit size={28} className="text-white" />
-                   </div>
-                   <h3 className="text-3xl font-black tracking-tighter italic mb-4 leading-tight">AI_STRATEGIC_LOG</h3>
-                   <p className="text-white/80 text-base font-medium leading-relaxed mb-10 italic max-w-md">
-                     "Significant cluster of 403_FORBIDDEN errors detected in DOC_UPLOAD_NODE. Root cause: Expired IAM policy tokens. Auto-renewal script suggested."
-                   </p>
-                 </div>
-                 <button className="w-fit px-10 py-4 bg-white text-emerald-700 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] hover:shadow-2xl transition-all active:scale-[0.98]">
-                   EXECUTE_PATCH_V2.1
-                 </button>
-               </div>
-            </div>
-
-            {/* Recent Resolution Timeline */}
-            <div className="glass-card p-8 rounded-[2.5rem]">
-               <h3 className="text-xs font-black text-white uppercase tracking-widest mb-10 flex items-center justify-between">
-                 <div className="flex items-center gap-3">
-                   <BarChart3 size={18} className="text-emerald-500" />
-                   Resolution Timeline
-                 </div>
-                 <span className="text-[9px] font-black text-emerald-500 bg-emerald-500/5 px-2 py-1 rounded border border-emerald-500/10 italic">SYNC_LIVE</span>
-               </h3>
-               
-               <div className="space-y-6">
-                  {timeline.map((log, i) => (
-                    <div key={log.id} className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5 hover:border-emerald-500/20 transition-all group">
-                      <div className="flex items-center gap-4">
-                        <div className="w-8 h-8 rounded-xl bg-slate-950 flex items-center justify-center font-black text-[10px] text-slate-500 border border-white/5">
-                          {i + 1}
-                        </div>
-                        <div>
-                          <p className="text-[11px] font-black text-white tracking-widest">{log.node}</p>
-                          <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">{log.id} • {log.time}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <span className={`text-[9px] font-black uppercase tracking-[0.2em] ${log.status === 'ESCALATED' ? 'text-rose-500' : 'text-emerald-500'}`}>
-                          {log.status}
-                        </span>
-                        <ChevronRight size={14} className="text-slate-700 group-hover:text-white transition-colors" />
-                      </div>
-                    </div>
-                  ))}
-               </div>
-            </div>
-
-          </div>
+                )}
+              </div>
+            </>
+          )}
         </main>
       </div>
     </div>

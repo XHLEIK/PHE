@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import Complaint from '@/lib/models/Complaint';
-import AnalysisTask from '@/lib/models/AnalysisTask';
 import { createAuditEntry } from '@/lib/models/AuditLog';
 import { verifyAccessToken } from '@/lib/auth';
 import { createComplaintSchema, complaintQuerySchema } from '@/lib/validations';
@@ -13,10 +12,12 @@ import {
   generateComplaintId,
   checkRateLimit,
 } from '@/lib/api-utils';
+import { processAnalysis } from '@/lib/gemini';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
  * POST /api/complaints — Submit a new complaint (public, rate-limited)
+ * Saves immediately, responds 201, then fires AI analysis asynchronously.
  */
 export async function POST(req: NextRequest) {
   const correlationId = uuidv4();
@@ -46,36 +47,35 @@ export async function POST(req: NextRequest) {
       complaintId,
       title: parsed.data.title,
       description: parsed.data.description,
-      category: parsed.data.category,
-      priority: parsed.data.priority,
+      category: 'pending_ai', // AI will assign this
+      priority: 'medium',      // AI may override this
       location: parsed.data.location || '',
-      submitterName: parsed.data.submitterName || null,
-      submitterContact: parsed.data.submitterContact || null,
-    });
-
-    // Enqueue AI analysis task (placeholder for future AI worker)
-    await AnalysisTask.create({
-      complaintId: complaint.complaintId,
-      status: 'pending',
+      submitterName: parsed.data.submitterName,
+      submitterPhone: parsed.data.submitterPhone,
+      submitterEmail: parsed.data.submitterEmail,
+      coordinates: parsed.data.coordinates || null,
+      analysisStatus: 'queued',
+      analysisAttempts: 0,
+      department: 'Unassigned',
     });
 
     // Audit log
     await createAuditEntry({
       action: 'complaint.created',
-      actor: 'candidate',
+      actor: 'citizen',
       targetType: 'complaint',
       targetId: complaint._id.toString(),
       metadata: {
         complaintId: complaint.complaintId,
-        category: complaint.category,
-        priority: complaint.priority,
         ip,
+        hasCoordinates: !!parsed.data.coordinates,
       },
       correlationId,
       ipAddress: ip,
     });
 
-    return successResponse(
+    // Respond immediately — do NOT await AI analysis
+    const response = successResponse(
       {
         complaintId: complaint.complaintId,
         message: 'Complaint submitted successfully. Your reference ID is ' + complaint.complaintId,
@@ -84,6 +84,16 @@ export async function POST(req: NextRequest) {
       undefined,
       201
     );
+
+    // Fire-and-forget AI analysis — structured so a queue worker can replace this call
+    // without any other code changes (processAnalysis is a standalone function)
+    setImmediate(() => {
+      processAnalysis(complaint.complaintId).catch(err => {
+        console.error('[COMPLAINT POST] Fire-and-forget analysis error:', err);
+      });
+    });
+
+    return response;
   } catch (err) {
     console.error('[COMPLAINT CREATE ERROR]', err);
     return errorResponse('Internal server error', 500);
@@ -92,6 +102,7 @@ export async function POST(req: NextRequest) {
 
 /**
  * GET /api/complaints — List complaints (admin only, paginated, filterable)
+ * department_admin: scoped to their departments only
  */
 export async function GET(req: NextRequest) {
   try {
@@ -116,14 +127,18 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const { page, limit, status, priority, sort, search } = parsed.data;
+    const { page, limit, status, priority, sort, search, department } = parsed.data;
 
     await connectDB();
 
-    // Build filter
+    // Build filter — enforce department scoping for department_admin and staff
     const filter: Record<string, unknown> = {};
+    if ((payload.role === 'department_admin' || payload.role === 'staff') && payload.departments?.length) {
+      filter.department = { $in: payload.departments };
+    }
     if (status) filter.status = status;
     if (priority) filter.priority = priority;
+    if (department) filter.department = department;
     if (search) {
       filter.$text = { $search: search };
     }
@@ -140,6 +155,7 @@ export async function GET(req: NextRequest) {
         .sort(sortObj)
         .skip(skip)
         .limit(limit)
+        .select('-submitterPhone -submitterEmail') // always mask in list
         .lean(),
       Complaint.countDocuments(filter),
     ]);

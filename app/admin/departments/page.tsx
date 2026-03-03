@@ -1,142 +1,168 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Sidebar from '@/components/admin/dashboard/Sidebar';
 import Topbar from '@/components/admin/dashboard/Topbar';
-import { CreditCard, FileUp, Cpu, Scale, Activity, Timer, ArrowRight, Server } from 'lucide-react';
+import { getDepartmentStats } from '@/lib/api-client';
+import { DEPARTMENTS } from '@/lib/constants';
+import { Building2, Clock, AlertTriangle, Users, FileText, CheckCircle2, Loader2 } from 'lucide-react';
+
+interface DeptStat {
+  id: string;
+  label: string;
+  description: string;
+  sla_days: number;
+  escalation_level: number;
+  active: boolean;
+  totalGrievances: number;
+  resolvedGrievances: number;
+  pendingGrievances: number;
+  assignedAdmins: number;
+  subcategories?: string[];
+}
+
+const fallbackDepts = (): DeptStat[] =>
+  DEPARTMENTS.filter(d => d.active).map(d => ({
+    ...d,
+    totalGrievances: 0,
+    resolvedGrievances: 0,
+    pendingGrievances: 0,
+    assignedAdmins: 0,
+  }));
 
 const DepartmentsPage = () => {
-  const departments = [
-    {
-      name: 'Payment Gateway',
-      role: 'Transaction Integrity',
-      workload: 85,
-      avgResponse: '0.4s',
-      status: 'High Traffic',
-      icon: CreditCard,
-      color: 'emerald'
-    },
-    {
-      name: 'Digital Documentation',
-      role: 'Upload & Verification',
-      workload: 62,
-      avgResponse: '2.1s',
-      status: 'Stable',
-      icon: FileUp,
-      color: 'blue'
-    },
-    {
-      name: 'Portal Infrastructure',
-      role: 'Server & Latency',
-      workload: 34,
-      avgResponse: '12ms',
-      status: 'Optimal',
-      icon: Cpu,
-      color: 'purple'
-    },
-    {
-      name: 'RTI & Legal Compliance',
-      role: 'Information Requests',
-      workload: 92,
-      avgResponse: '4.5h',
-      status: 'Critical',
-      icon: Scale,
-      color: 'rose'
+  const [departments, setDepartments] = useState<DeptStat[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const result = await getDepartmentStats();
+      if (result.success && result.data && result.data.length > 0) {
+        // Merge subcategories from constants
+        const deptMap = new Map(DEPARTMENTS.map(d => [d.id, d]));
+        const merged = result.data.map(d => ({
+          ...d,
+          subcategories: deptMap.get(d.id)?.subcategories || [],
+        }));
+        setDepartments(merged);
+      } else {
+        // DB not seeded — fallback to constants
+        setDepartments(fallbackDepts());
+      }
+    } catch {
+      setDepartments(fallbackDepts());
+    } finally {
+      setLoading(false);
     }
-  ];
+  }, []);
+
+  useEffect(() => { fetchStats(); }, [fetchStats]);
+
+  const activeDepts = departments.filter(d => d.active);
+  const totalGrievances = activeDepts.reduce((s, d) => s + d.totalGrievances, 0);
+  const totalAdmins = activeDepts.reduce((s, d) => s + d.assignedAdmins, 0);
 
   return (
-    <div className="min-h-screen bg-[#0F172A] flex font-sans">
+    <div className="min-h-screen bg-[#faf7f0] flex font-sans">
       <Sidebar />
       
       <div className="flex-1 lg:ml-64 flex flex-col min-h-screen overflow-x-hidden">
         <Topbar />
         
-        <main className="p-6 md:p-10 space-y-10">
-          {/* Header Section */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <main className="p-6 md:p-8 space-y-6">
+          {/* Header */}
+          <div className="flex items-end justify-between">
             <div>
-              <div className="flex items-center gap-3 mb-2">
-                <Server size={20} className="text-emerald-500" />
-                <h1 className="text-3xl font-black text-white tracking-tight uppercase italic">Nodes_Cluster</h1>
+              <h1 className="text-2xl font-bold text-slate-900">Departments</h1>
+              <p className="text-sm text-slate-500 mt-1">{activeDepts.length} state departments registered</p>
+            </div>
+            {!loading && (
+              <div className="flex gap-4 text-xs text-slate-500">
+                <span className="flex items-center gap-1"><FileText size={12} /> {totalGrievances} total grievances</span>
+                <span className="flex items-center gap-1"><Users size={12} /> {totalAdmins} admins assigned</span>
               </div>
-              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em]">Operational Infrastructure Hierarchy</p>
-            </div>
-            
-            <div className="flex items-center gap-4 bg-slate-900/50 p-2 rounded-2xl border border-white/5 backdrop-blur-sm">
-               <div className="px-4 py-2 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
-                  <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest italic">Global Node: ONLINE</span>
-               </div>
-               <button className="px-4 py-2 bg-white text-slate-900 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-500 hover:text-white transition-all">
-                 System_Reboot
-               </button>
-            </div>
+            )}
           </div>
 
-          {/* Department Grid */}
-          <div className="grid grid-cols-1 gap-6">
-            {departments.map((dept) => (
-              <div key={dept.name} className="glass-card p-8 rounded-[2.5rem] group hover:border-emerald-500/30 transition-all duration-500 relative overflow-hidden">
-                {/* Background Accent */}
-                <div className={`absolute top-0 left-0 w-1 h-full bg-${dept.color}-500 opacity-50 shadow-[0_0_20px_rgba(16,185,129,0.5)]`}></div>
-                
-                <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-center">
-                  
-                  {/* Column 1: Info (3/12) */}
-                  <div className="xl:col-span-3 flex items-center gap-5">
-                    <div className="w-16 h-16 bg-slate-950 rounded-[1.25rem] flex items-center justify-center text-emerald-500 border border-white/5 shadow-inner group-hover:scale-110 transition-transform duration-500">
-                      <dept.icon size={32} />
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 size={32} className="animate-spin text-amber-700" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {activeDepts.map(dept => {
+                const resRate = dept.totalGrievances > 0 ? Math.round((dept.resolvedGrievances / dept.totalGrievances) * 100) : 0;
+                return (
+                  <div key={dept.id} className="bg-white border border-slate-200 p-5 rounded-xl hover:shadow-sm hover:border-amber-300 transition-all group">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="p-2 bg-amber-50 rounded-lg">
+                        <Building2 size={18} className="text-amber-700" />
+                      </div>
+                      <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">Active</span>
                     </div>
-                    <div>
-                      <h3 className="text-xl font-black text-white tracking-tight group-hover:text-emerald-400 transition-colors">{dept.name}</h3>
-                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">{dept.role}</p>
+                    <h3 className="text-sm font-semibold text-slate-900 mb-1 group-hover:text-amber-800 transition-colors">{dept.label}</h3>
+                    <p className="text-xs text-slate-500 mb-3 line-clamp-2">{dept.description}</p>
+                    
+                    {/* Stats Row */}
+                    <div className="grid grid-cols-3 gap-2 mb-3 p-2.5 bg-slate-50 rounded-lg">
+                      <div className="text-center">
+                        <p className="text-sm font-bold text-slate-900">{dept.totalGrievances}</p>
+                        <p className="text-[10px] text-slate-400">Grievances</p>
+                      </div>
+                      <div className="text-center border-x border-slate-200">
+                        <p className="text-sm font-bold text-emerald-700">{dept.resolvedGrievances}</p>
+                        <p className="text-[10px] text-slate-400">Resolved</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm font-bold text-amber-700">{dept.pendingGrievances}</p>
+                        <p className="text-[10px] text-slate-400">Pending</p>
+                      </div>
+                    </div>
+
+                    {/* Admin & SLA Row */}
+                    <div className="flex items-center justify-between text-xs text-slate-400 mb-3">
+                      <span className="flex items-center gap-1">
+                        <Users size={12} className={dept.assignedAdmins === 0 ? 'text-rose-500' : ''} />
+                        <span className={dept.assignedAdmins === 0 ? 'text-rose-600 font-medium' : ''}>
+                          {dept.assignedAdmins === 0 ? '⚠ No Admin' : `${dept.assignedAdmins} admin${dept.assignedAdmins > 1 ? 's' : ''}`}
+                        </span>
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock size={12} />
+                        SLA: {dept.sla_days}d
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <AlertTriangle size={12} />
+                        L{dept.escalation_level}
+                      </span>
+                    </div>
+
+                    {/* Resolution Progress */}
+                    {dept.totalGrievances > 0 && (
+                      <div className="mb-3">
+                        <div className="flex items-center justify-between text-[10px] mb-1">
+                          <span className="text-slate-400 flex items-center gap-1"><CheckCircle2 size={10} /> Resolution</span>
+                          <span className="font-semibold text-slate-600">{resRate}%</span>
+                        </div>
+                        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-emerald-500 rounded-full transition-all duration-700" style={{ width: `${resRate}%` }}></div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap gap-1">
+                      {(dept.subcategories || []).slice(0, 3).map(sub => (
+                        <span key={sub} className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded">{sub}</span>
+                      ))}
+                      {(dept.subcategories || []).length > 3 && (
+                        <span className="text-[10px] text-slate-400">+{(dept.subcategories || []).length - 3} more</span>
+                      )}
                     </div>
                   </div>
-
-                  {/* Column 2: Workload (4/12) */}
-                  <div className="xl:col-span-4 space-y-3 px-0 xl:px-8 border-l border-white/5">
-                    <div className="flex justify-between items-end">
-                       <div className="flex items-center gap-2 text-slate-500">
-                         <Activity size={14} />
-                         <span className="text-[10px] font-black uppercase tracking-widest">Load Factor</span>
-                       </div>
-                       <span className="text-sm font-black text-emerald-400 tabular-nums">{dept.workload}%</span>
-                    </div>
-                    <div className="h-2 w-full bg-slate-950 rounded-full overflow-hidden border border-white/5">
-                       <div 
-                         className={`h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-full shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all duration-[1.5s] ease-out`} 
-                         style={{ width: `${dept.workload}%` }}
-                       ></div>
-                    </div>
-                  </div>
-
-                  {/* Column 3: Metrics (2/12) */}
-                  <div className="xl:col-span-2 flex flex-col items-center justify-center border-l border-white/5 px-4 text-center">
-                    <div className="flex items-center gap-2 text-slate-600 mb-1">
-                       <Timer size={14} />
-                       <span className="text-[9px] font-black uppercase tracking-widest">Latency</span>
-                    </div>
-                    <p className="text-2xl font-black text-white tracking-tighter italic">{dept.avgResponse}</p>
-                    <span className={`text-[9px] font-black uppercase tracking-[0.2em] mt-1 ${
-                      dept.status === 'Critical' ? 'text-rose-500 animate-pulse' : 'text-emerald-500'
-                    }`}>{dept.status}</span>
-                  </div>
-
-                  {/* Column 4: Actions (3/12) - FIXED POSITIONING */}
-                  <div className="xl:col-span-3 flex flex-row xl:flex-col gap-3 justify-end">
-                    <button className="flex-1 xl:w-full bg-emerald-600 text-white font-black text-[10px] uppercase tracking-[0.2em] py-4 rounded-2xl hover:bg-emerald-500 shadow-xl shadow-emerald-900/20 transition-all active:scale-[0.98] border border-white/10">
-                      Launch_Terminal
-                    </button>
-                    <button className="flex-1 xl:w-full bg-slate-950 text-slate-400 font-black text-[10px] uppercase tracking-[0.2em] py-4 rounded-2xl border border-white/5 hover:bg-slate-900 hover:text-white transition-all flex items-center justify-center gap-2">
-                      Full_Diagnostics
-                      <ArrowRight size={14} />
-                    </button>
-                  </div>
-
-                </div>
-              </div>
-            ))}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </main>
       </div>
     </div>

@@ -1,41 +1,16 @@
 @import "tailwindcss";
 
 :root {
-  --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 15, 23, 42;
-  --background-end-rgb: 2, 6, 23;
+  --foreground-rgb: 30, 41, 59;
+  --background-rgb: 250, 247, 240;
 }
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: #0F172A; /* Midnight Navy */
+  background: rgb(var(--background-rgb));
   overflow-x: hidden;
 }
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-}
-
-@layer utilities {
-  .glass-card {
-    background-color: rgb(15 23 42 / 0.5);
-    backdrop-filter: blur(24px);
-    border-width: 1px;
-    border-color: rgb(255 255 255 / 0.1);
-    box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.5);
-  }
-  
-  .dark-input {
-    background-color: rgb(2 6 23);
-    border-width: 1px;
-    border-color: rgb(30 41 59);
-    color: white;
-  }
-  
-  .dark-input:focus {
-    border-color: rgb(16 185 129);
-    outline: none;
-    ring-width: 1px;
-    ring-color: rgb(16 185 129 / 0.2);
-  }
 }

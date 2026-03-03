@@ -109,11 +109,11 @@ export async function rotatePassword(currentPassword: string, newPassword: strin
 export interface ComplaintPayload {
   title: string;
   description: string;
-  category: string;
-  priority: string;
+  submitterName: string;
+  submitterPhone: string;
+  submitterEmail: string;
   location?: string;
-  submitterName?: string;
-  submitterContact?: string;
+  coordinates?: { lat: number; lng: number };
 }
 
 export async function submitComplaint(data: ComplaintPayload) {
@@ -162,8 +162,9 @@ export async function getAdminUsers() {
 export interface CreateAdminPayload {
   email: string;
   name: string;
-  securityLevel: number;
   temporaryPassword: string;
+  role?: 'head_admin' | 'department_admin' | 'staff';
+  departments?: string[];
 }
 
 export async function createAdminUser(data: CreateAdminPayload) {
@@ -181,8 +182,87 @@ export async function getDashboardStats() {
     overview: Record<string, unknown>;
     priorities: Record<string, number>;
     categories: Array<{ category: string; count: number }>;
-    departments: Array<{ department: string; count: number }>;
+    departments: Array<{ id: string; label: string; total: number; pending: number; resolved: number; deferred: number }>;
+    analysis: Record<string, number>;
   }>('/api/admin/stats');
+}
+
+// ---------------------------------------------------------------------------
+// Contact Reveal API
+// ---------------------------------------------------------------------------
+export async function revealContact(complaintId: string, reason: string) {
+  return request<{ phone: string | null; email: string | null; name: string | null }>(
+    `/api/complaints/${complaintId}/reveal-contact`,
+    { method: 'POST', body: JSON.stringify({ reason }) }
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Re-analyze API (trigger AI re-analysis)
+// ---------------------------------------------------------------------------
+export async function reanalyzeComplaint(complaintId: string) {
+  return request<Record<string, unknown>>(
+    `/api/complaints/${complaintId}/reanalyze`,
+    { method: 'POST' }
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Department Stats API
+// ---------------------------------------------------------------------------
+export async function getDepartmentStats() {
+  return request<Array<{
+    id: string;
+    label: string;
+    description: string;
+    sla_days: number;
+    escalation_level: number;
+    active: boolean;
+    totalGrievances: number;
+    resolvedGrievances: number;
+    pendingGrievances: number;
+    assignedAdmins: number;
+  }>>('/api/admin/departments/stats');
+}
+
+// ---------------------------------------------------------------------------
+// Chat API (citizen-facing, token-based auth)
+// ---------------------------------------------------------------------------
+
+export async function createChatSession(complaintId: string, email: string) {
+  return request<{ sessionId: string; complaintId: string; accessToken: string }>('/api/chat/sessions', {
+    method: 'POST',
+    body: JSON.stringify({ complaintId, email }),
+  });
+}
+
+export async function getChatSessions(token: string) {
+  return request<Array<{ complaintId: string; title: string; createdAt: string; accessToken: string }>>(
+    `/api/chat/sessions?token=${encodeURIComponent(token)}`
+  );
+}
+
+export async function getChatMessages(complaintId: string, token: string) {
+  return request<Array<{ _id: string; senderType: 'user' | 'ai'; content: string; createdAt: string }>>(
+    `/api/chat/${encodeURIComponent(complaintId)}/messages?token=${encodeURIComponent(token)}`
+  );
+}
+
+export async function sendChatMessage(complaintId: string, message: string, token: string) {
+  return request<{
+    userMessage: { _id: string; senderType: 'user'; content: string; createdAt: string };
+    aiMessage: { _id: string; senderType: 'ai'; content: string; createdAt: string };
+  }>(`/api/chat/${encodeURIComponent(complaintId)}/messages?token=${encodeURIComponent(token)}`, {
+    method: 'POST',
+    body: JSON.stringify({ message }),
+  });
+}
+
+export async function deleteChatSession(complaintId: string, token: string) {
+  return request<{ message: string }>(
+    `/api/chat/${encodeURIComponent(complaintId)}/messages?token=${encodeURIComponent(token)}`,
+    { method: 'DELETE' }
+  );
 }
 
 // ---------------------------------------------------------------------------

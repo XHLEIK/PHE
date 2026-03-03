@@ -98,7 +98,7 @@ export async function createAuditEntry(params: {
   targetId: string;
   changes?: Record<string, { from: unknown; to: unknown }>;
   metadata?: Record<string, unknown>;
-  correlationId: string;
+  correlationId?: string;
   ipAddress?: string;
 }): Promise<IAuditLog> {
   // Get the last audit entry's hash to chain
@@ -124,7 +124,7 @@ export async function createAuditEntry(params: {
     targetId: params.targetId,
     changes: params.changes ?? {},
     metadata: params.metadata ?? {},
-    correlationId: params.correlationId,
+    correlationId: params.correlationId || crypto.randomUUID(),
     ipAddress: params.ipAddress ?? 'unknown',
     integrityHash,
     previousHash,

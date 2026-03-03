@@ -65,7 +65,44 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // RBAC: Creation rules per role
+    // head_admin: can create head_admin, department_admin, staff
+    // department_admin: can create staff within their own departments only
+    // staff: cannot create any admin
+    if (payload.role === 'staff') {
+      return errorResponse('Staff members cannot create admin accounts', 403);
+    }
+
+    if (payload.role === 'department_admin') {
+      // Department admins can only create staff
+      if (parsed.data.role !== 'staff') {
+        return errorResponse('Department admins can only create staff accounts', 403);
+      }
+      // Ensure new staff departments are a subset of creator's departments
+      if (!parsed.data.departments || parsed.data.departments.length === 0) {
+        return errorResponse('Staff must be assigned to at least one department', 400);
+      }
+      const creatorDepts = payload.departments || [];
+      const invalidDepts = parsed.data.departments.filter(d => !creatorDepts.includes(d));
+      if (invalidDepts.length > 0) {
+        return errorResponse('You can only assign departments within your own scope', 403);
+      }
+    }
+
+    if (payload.role === 'head_admin') {
+      // head_admin can create any role — no extra restrictions
+    }
+
+    if (payload.role !== 'head_admin' && payload.role !== 'department_admin') {
+      return errorResponse('Insufficient permissions to create admin accounts', 403);
+    }
+
     await connectDB();
+
+    // Validate departments for department_admin and staff roles
+    if ((parsed.data.role === 'department_admin' || parsed.data.role === 'staff') && (!parsed.data.departments || parsed.data.departments.length === 0)) {
+      return errorResponse('Department admin and staff must be assigned to at least one department', 400);
+    }
 
     // Check if email already exists
     const existing = await User.findOne({ email: parsed.data.email });
@@ -79,8 +116,8 @@ export async function POST(req: NextRequest) {
       email: parsed.data.email,
       name: parsed.data.name,
       passwordHash: hashedPassword,
-      role: 'admin',
-      securityLevel: parsed.data.securityLevel,
+      role: parsed.data.role || 'staff',
+      departments: parsed.data.departments || [],
       mustRotatePassword: true, // Force password change on first login
       createdBy: payload.email,
       isSeeded: false,
@@ -95,7 +132,8 @@ export async function POST(req: NextRequest) {
       changes: {
         email: { from: null, to: newAdmin.email },
         name: { from: null, to: newAdmin.name },
-        securityLevel: { from: null, to: newAdmin.securityLevel },
+        role: { from: null, to: newAdmin.role },
+        departments: { from: null, to: newAdmin.departments },
       },
       metadata: { createdBy: payload.email },
       correlationId,

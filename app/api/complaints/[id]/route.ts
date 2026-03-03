@@ -3,7 +3,7 @@ import connectDB from '@/lib/db';
 import Complaint from '@/lib/models/Complaint';
 import { createAuditEntry } from '@/lib/models/AuditLog';
 import { verifyAccessToken } from '@/lib/auth';
-import { updateComplaintSchema } from '@/lib/validations';
+import { updateComplaintSchema, TERMINAL_STATUSES } from '@/lib/validations';
 import {
   successResponse,
   errorResponse,
@@ -12,8 +12,25 @@ import {
 } from '@/lib/api-utils';
 import { v4 as uuidv4 } from 'uuid';
 
+// Mask sensitive contact fields for non-head_admin
+function maskContact(complaint: Record<string, unknown>, isHeadAdmin: boolean) {
+  if (isHeadAdmin) return complaint;
+  const masked = { ...complaint };
+  if (masked.submitterPhone) {
+    const p = String(masked.submitterPhone);
+    masked.submitterPhone = '*****' + p.slice(-4);
+  }
+  if (masked.submitterEmail) {
+    const e = String(masked.submitterEmail);
+    const [local, domain] = e.split('@');
+    masked.submitterEmail = local.slice(0, 2) + '***@' + domain;
+  }
+  return masked;
+}
+
 /**
  * GET /api/complaints/[id] — Get a single complaint by complaintId (admin only)
+ * department_admin: 403 if complaint is outside their departments
  */
 export async function GET(
   req: NextRequest,
@@ -38,7 +55,15 @@ export async function GET(
       return errorResponse('Complaint not found', 404);
     }
 
-    return successResponse(complaint);
+    // Department scoping for department_admin and staff
+    if ((payload.role === 'department_admin' || payload.role === 'staff') && payload.departments?.length) {
+      if (!payload.departments.includes(String((complaint as any).department))) {
+        return errorResponse('You do not have access to this complaint', 403);
+      }
+    }
+
+    const isHeadAdmin = payload.role === 'head_admin';
+    return successResponse(maskContact(complaint as unknown as Record<string, unknown>, isHeadAdmin));
   } catch (err) {
     console.error('[COMPLAINT GET ERROR]', err);
     return errorResponse('Internal server error', 500);
@@ -46,7 +71,8 @@ export async function GET(
 }
 
 /**
- * PATCH /api/complaints/[id] — Update complaint status/priority/assignment (admin only)
+ * PATCH /api/complaints/[id] — Update complaint (admin only)
+ * Reason is MANDATORY for terminal transitions: resolved, closed, escalated
  */
 export async function PATCH(
   req: NextRequest,
@@ -83,6 +109,32 @@ export async function PATCH(
       return errorResponse('Complaint not found', 404);
     }
 
+    // Department scoping for department_admin and staff
+    if ((payload.role === 'department_admin' || payload.role === 'staff') && payload.departments?.length) {
+      if (!payload.departments.includes(complaint.department)) {
+        return errorResponse('You do not have access to this complaint', 403);
+      }
+    }
+
+    // Staff role restrictions: cannot close or resolve complaints
+    const newStatus = parsed.data.status;
+    if (payload.role === 'staff' && newStatus) {
+      const staffForbiddenStatuses = ['resolved', 'closed'];
+      if (staffForbiddenStatuses.includes(newStatus)) {
+        return errorResponse('Staff members cannot resolve or close complaints. Please escalate or contact a department admin.', 403);
+      }
+    }
+
+    // Enforce mandatory reason for terminal/escalation transitions
+    if (newStatus && (TERMINAL_STATUSES as readonly string[]).includes(newStatus)) {
+      if (!parsed.data.reason) {
+        return errorResponse(
+          `A reason is required when changing status to "${newStatus}". Please select a reason.`,
+          400
+        );
+      }
+    }
+
     // Track changes for audit
     const changes: Record<string, { from: unknown; to: unknown }> = {};
     const update = parsed.data;
@@ -101,7 +153,7 @@ export async function PATCH(
     }
     if (update.assignedTo !== undefined && update.assignedTo !== complaint.assignedTo) {
       changes.assignedTo = { from: complaint.assignedTo, to: update.assignedTo };
-      complaint.assignedTo = update.assignedTo;
+      complaint.assignedTo = update.assignedTo ?? null;
     }
 
     if (Object.keys(changes).length === 0) {
@@ -110,19 +162,24 @@ export async function PATCH(
 
     await complaint.save();
 
-    // Audit log for state change
+    // Audit log — always includes reason + comment if provided
     await createAuditEntry({
       action: 'complaint.updated',
       actor: payload.email,
       targetType: 'complaint',
       targetId: complaint._id.toString(),
       changes,
-      metadata: { complaintId: complaint.complaintId },
+      metadata: {
+        complaintId: complaint.complaintId,
+        reason: update.reason || null,
+        comment: update.comment || null,
+      },
       correlationId,
       ipAddress: ip,
     });
 
-    return successResponse(complaint.toJSON());
+    const isHeadAdmin = payload.role === 'head_admin';
+    return successResponse(maskContact(complaint.toJSON() as unknown as Record<string, unknown>, isHeadAdmin));
   } catch (err) {
     console.error('[COMPLAINT UPDATE ERROR]', err);
     return errorResponse('Internal server error', 500);

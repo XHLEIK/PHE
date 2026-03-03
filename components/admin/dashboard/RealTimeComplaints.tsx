@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Activity, ShieldCheck } from 'lucide-react';
+import { FileText } from 'lucide-react';
 import ComplaintCard, { Complaint } from './ComplaintCard';
 import { getComplaints } from '@/lib/api-client';
 import { getDevComplaints } from '@/lib/dev-fixtures';
@@ -20,12 +20,14 @@ const RealTimeComplaints = () => {
           priority: ((c.priority as string) || 'MEDIUM').toUpperCase() as Complaint['priority'],
           status: ((c.status as string) || 'PENDING').toUpperCase().replace(/ /g, '_') as Complaint['status'],
           time: c.createdAt ? new Date(c.createdAt as string).toLocaleString() : '',
-          department: (c.department as string) || 'General',
+          department: (c.department as string) || 'Unassigned',
+          aiSummary: (c.aiSummary as string) || null,
+          aiConfidence: (c.aiConfidence as number) || null,
+          analysisStatus: (c.analysisStatus as string) || null,
         }));
         setComplaints(mapped);
         setTotalCount(result.meta?.total ?? mapped.length);
       } else {
-        // Fallback to dev fixtures
         const dev = getDevComplaints();
         setComplaints(dev.map(d => ({ ...d, status: d.status.toUpperCase().replace(/ /g, '_') as Complaint['status'] })));
         setTotalCount(dev.length);
@@ -39,37 +41,32 @@ const RealTimeComplaints = () => {
     }
   }, []);
 
-  useEffect(() => { fetchComplaints(); }, [fetchComplaints]);
+  useEffect(() => {
+    fetchComplaints();
+    // Poll every 10s so AI analysis results appear automatically
+    const interval = setInterval(fetchComplaints, 10_000);
+    return () => clearInterval(interval);
+  }, [fetchComplaints]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="p-2 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
-            <ShieldCheck size={20} className="text-emerald-500" />
-          </div>
+        <div className="flex items-center gap-3">
+          <FileText size={20} className="text-amber-700" />
           <div>
-            <h3 className="text-xl font-black text-white tracking-tight uppercase italic leading-none">Kernel_Issue_Feed</h3>
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1.5 flex items-center gap-2">
-              <span className="w-1 h-1 bg-emerald-500 rounded-full animate-ping"></span>
-              Live Node Synchronization Active
-            </p>
+            <h3 className="text-lg font-semibold text-slate-900">Recent Grievances</h3>
+            <p className="text-xs text-slate-400">{totalCount} total grievances</p>
           </div>
-        </div>
-        
-        <div className="flex items-center gap-2 px-4 py-2 bg-slate-900 border border-white/5 rounded-xl">
-          <Activity size={14} className="text-emerald-500 animate-pulse" />
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{totalCount}_ACTIVE_NODES</span>
         </div>
       </div>
 
-      <div className="space-y-5">
+      <div className="space-y-3">
         {loading ? (
           Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="bg-slate-900/40 p-6 rounded-[2rem] border border-white/5 animate-pulse h-40" />
+            <div key={i} className="bg-white p-5 rounded-xl border border-slate-200 animate-pulse h-32" />
           ))
         ) : complaints.length === 0 ? (
-          <div className="text-center py-12 text-slate-500 text-sm font-bold uppercase tracking-widest">
+          <div className="text-center py-12 text-slate-400 text-sm">
             No grievances found
           </div>
         ) : (
@@ -78,10 +75,6 @@ const RealTimeComplaints = () => {
           ))
         )}
       </div>
-      
-      <button className="w-full py-5 text-[10px] font-black text-slate-600 uppercase tracking-[0.3em] border border-dashed border-white/5 rounded-[2rem] hover:bg-white/5 hover:text-emerald-500 hover:border-emerald-500/20 transition-all duration-300">
-        Fetch_Historical_Archives
-      </button>
     </div>
   );
 };

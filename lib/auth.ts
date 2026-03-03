@@ -10,8 +10,8 @@ const REFRESH_EXPIRY = process.env.JWT_REFRESH_EXPIRY || '7d';
 export interface TokenPayload {
   userId: string;
   email: string;
-  role: string;
-  securityLevel: number;
+  role: 'head_admin' | 'department_admin' | 'staff';
+  departments?: string[]; // populated for department_admin and staff roles
 }
 
 // ---------------------------------------------------------------------------
@@ -33,7 +33,9 @@ export function generateAccessToken(payload: TokenPayload): string {
 }
 
 export function generateRefreshToken(payload: TokenPayload): string {
-  return jwt.sign(payload, REFRESH_SECRET, { expiresIn: REFRESH_EXPIRY } as jwt.SignOptions);
+  // Include a random jti to guarantee uniqueness even for concurrent refreshes
+  const jti = crypto.randomUUID();
+  return jwt.sign({ ...payload, jti }, REFRESH_SECRET, { expiresIn: REFRESH_EXPIRY } as jwt.SignOptions);
 }
 
 export function verifyAccessToken(token: string): TokenPayload | null {

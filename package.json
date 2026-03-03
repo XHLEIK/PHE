@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "seed:departments": "npx tsx scripts/seed-departments.ts",
     "seed:admin": "npx tsx scripts/seed-admin.ts",
+    "seed:dept-admin": "npx tsx scripts/seed-dept-admin.ts",
+    "migrate:roles": "npx tsx scripts/migrate-roles.ts",
     "test": "npx tsx scripts/run-tests.ts"
   },
   "dependencies": {

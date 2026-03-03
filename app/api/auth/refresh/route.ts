@@ -56,18 +56,27 @@ export async function POST(req: NextRequest) {
       userId: user._id.toString(),
       email: user.email,
       role: user.role,
-      securityLevel: user.securityLevel,
+      departments: user.departments || [],
     };
 
     const newAccessToken = generateAccessToken(newPayload);
     const newRefreshToken = genRefresh(newPayload);
 
-    await RefreshToken.create({
-      tokenHash: hashToken(newRefreshToken),
-      userId: user._id,
-      userEmail: user.email,
-      expiresAt: getRefreshTokenExpiryDate(),
-    });
+    try {
+      await RefreshToken.create({
+        tokenHash: hashToken(newRefreshToken),
+        userId: user._id,
+        userEmail: user.email,
+        expiresAt: getRefreshTokenExpiryDate(),
+      });
+    } catch (createErr: unknown) {
+      // Handle race condition: if another concurrent refresh already created a token
+      if (createErr && typeof createErr === 'object' && 'code' in createErr && (createErr as { code: number }).code === 11000) {
+        // Duplicate key — token was already stored by a parallel request; safe to ignore
+      } else {
+        throw createErr;
+      }
+    }
 
     const isProduction = process.env.NODE_ENV === 'production';
     const securePart = isProduction ? 'Secure; ' : '';

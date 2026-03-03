@@ -107,12 +107,12 @@ export async function POST(req: NextRequest) {
     user.lastLoginAt = new Date();
     await user.save();
 
-    // Generate tokens
+    // Generate tokens — include departments for department_admin and staff roles
     const tokenPayload = {
       userId: user._id.toString(),
       email: user.email,
       role: user.role,
-      securityLevel: user.securityLevel,
+      departments: user.departments || [],
     };
 
     const accessToken = generateAccessToken(tokenPayload);

@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
  * 2. Add security headers to all responses
  * 3. CORS enforcement for API routes
  */
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // --- CORS for API routes ---

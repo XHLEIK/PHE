@@ -6,13 +6,31 @@ export interface IComplaint extends Document {
   description: string;
   category: string;
   priority: 'low' | 'medium' | 'high' | 'critical';
-  status: 'pending' | 'triage' | 'in_progress' | 'resolved' | 'closed';
+  status: 'pending' | 'triage' | 'in_progress' | 'resolved' | 'closed' | 'escalated';
   location: string;
   department: string;
   assignedTo: string | null; // admin email
+  // Submitter contact info (always stored, masked in API responses)
   submitterName: string | null;
-  submitterContact: string | null;
+  submitterPhone: string | null;
+  submitterEmail: string | null;
+  // Geographic coordinates from browser geolocation
+  coordinates: { lat: number; lng: number } | null;
+  // AI analysis pipeline fields
+  analysisStatus: 'queued' | 'processing' | 'completed' | 'deferred';
+  aiCategory: string | null;
+  aiPriority: string | null;
+  aiSummary: string | null;
+  aiConfidence: number | null;
+  modelVersion: string | null;
+  promptHash: string | null;
+  analyzedAt: Date | null;
+  analysisAttempts: number;
+  lastAnalysisError: string | null;
+  lastAnalysisAt: Date | null;
+  // Attachments — backend-ready, not exposed in API until storage configured
   attachments: IAttachmentMeta[];
+  // Legacy fields kept for backward compatibility
   aiAnalyzed: boolean;
   aiAnalysisResult: Record<string, unknown> | null;
   createdAt: Date;
@@ -70,7 +88,7 @@ const ComplaintSchema = new Schema<IComplaint>(
     },
     status: {
       type: String,
-      enum: ['pending', 'triage', 'in_progress', 'resolved', 'closed'],
+      enum: ['pending', 'triage', 'in_progress', 'resolved', 'closed', 'escalated'],
       default: 'pending',
     },
     location: {
@@ -92,11 +110,38 @@ const ComplaintSchema = new Schema<IComplaint>(
       trim: true,
       default: null,
     },
-    submitterContact: {
+    submitterPhone: {
       type: String,
       trim: true,
       default: null,
     },
+    submitterEmail: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      default: null,
+    },
+    coordinates: {
+      type: new Schema({ lat: Number, lng: Number }, { _id: false }),
+      default: null,
+    },
+    // AI analysis pipeline
+    analysisStatus: {
+      type: String,
+      enum: ['queued', 'processing', 'completed', 'deferred'],
+      default: 'queued',
+      index: true,
+    },
+    aiCategory: { type: String, trim: true, default: null },
+    aiPriority: { type: String, trim: true, default: null },
+    aiSummary: { type: String, trim: true, maxlength: 1000, default: null },
+    aiConfidence: { type: Number, min: 0, max: 1, default: null },
+    modelVersion: { type: String, trim: true, default: null },
+    promptHash: { type: String, trim: true, default: null },
+    analyzedAt: { type: Date, default: null },
+    analysisAttempts: { type: Number, default: 0, min: 0 },
+    lastAnalysisError: { type: String, trim: true, default: null },
+    lastAnalysisAt: { type: Date, default: null },
     attachments: {
       type: [AttachmentMetaSchema],
       default: [],

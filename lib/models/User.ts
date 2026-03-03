@@ -4,8 +4,8 @@ export interface IUser extends Document {
   email: string;
   passwordHash: string;
   name: string;
-  role: 'admin' | 'superadmin';
-  securityLevel: number;
+  role: 'head_admin' | 'department_admin' | 'staff';
+  departments: string[]; // department IDs — required for department_admin and staff roles
   mustRotatePassword: boolean;
   isLocked: boolean;
   failedLoginAttempts: number;
@@ -38,14 +38,12 @@ const UserSchema = new Schema<IUser>(
     },
     role: {
       type: String,
-      enum: ['admin', 'superadmin'],
-      default: 'admin',
+      enum: ['head_admin', 'department_admin', 'staff'],
+      default: 'staff',
     },
-    securityLevel: {
-      type: Number,
-      default: 1,
-      min: 1,
-      max: 4,
+    departments: {
+      type: [String],
+      default: [],
     },
     mustRotatePassword: {
       type: Boolean,
@@ -89,8 +87,10 @@ const UserSchema = new Schema<IUser>(
   }
 );
 
-// Prevent recompilation in dev hot-reload
-const User: Model<IUser> =
-  mongoose.models.User || mongoose.model<IUser>('User', UserSchema);
+// Force re-registration so schema enum changes are picked up after hot-reload
+if (mongoose.models.User) {
+  mongoose.deleteModel('User');
+}
+const User: Model<IUser> = mongoose.model<IUser>('User', UserSchema);
 
 export default User;

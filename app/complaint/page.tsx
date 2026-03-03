@@ -2,61 +2,52 @@ import React from 'react';
 import ComplaintForm from '@/components/ComplaintForm';
 
 export const metadata = {
-  title: 'Submit Complaint | APPSC Grievance Redressal',
-  description: 'Submit your grievance to APPSC for quick resolution.',
+  title: 'Submit Grievance | Samadhan AI — State Grievance Services',
+  description: 'Register your grievance with the Arunachal Pradesh Public Service Commission. Secure, confidential, and AI-assisted routing.',
 };
 
 const ComplaintPage = () => {
   return (
-    <main className="min-h-screen bg-[#faf9f6] py-12 px-4 sm:px-6 lg:px-8 font-sans">
-      <div className="max-w-3xl mx-auto">
-        {/* Header Section */}
+    <main className="min-h-screen bg-[#faf7f0] py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-2xl mx-auto">
+
+        {/* ── Page header ─────────────────────────────────────── */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center p-3 bg-purple-100 rounded-full mb-4">
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              width="32" 
-              height="32" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor" 
-              strokeWidth="2" 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              className="text-purple-600"
-            >
-              <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-              <polyline points="14 2 14 8 20 8" />
-              <line x1="12" y1="18" x2="12" y2="12" />
-              <line x1="9" y1="15" x2="15" y2="15" />
+          {/* State emblem placeholder */}
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-50 border-2 border-amber-200 mb-5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#b8860b" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
             </svg>
           </div>
-          <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight sm:text-4xl">
-            Candidate Complaint Submission
+
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-700 mb-2">
+            Government of Arunachal Pradesh
+          </p>
+          <h1 className="text-3xl font-extrabold text-[#1e293b] tracking-tight sm:text-4xl">
+            Samadhan AI
           </h1>
-          <p className="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">
-            Please fill out the form below to register your complaint. Our AI-assisted system will ensure it reaches the right department with the correct priority.
+          <p className="mt-1 text-base font-medium text-slate-500">
+            State Grievance Services — APPSC
+          </p>
+          <p className="mt-4 text-sm text-slate-500 max-w-lg mx-auto">
+            Register your complaint securely. Our AI routing system will forward it to the correct department automatically.
+            Your contact details are kept confidential and only shared with authorised officials.
           </p>
         </div>
 
-        {/* Form Section */}
-        <div className="relative">
-          {/* Decorative elements */}
-          <div className="absolute -top-6 -left-6 w-12 h-12 bg-amber-100 rounded-full opacity-50 blur-xl"></div>
-          <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-purple-100 rounded-full opacity-50 blur-xl"></div>
-          
-          <ComplaintForm />
-        </div>
+        {/* ── Form ────────────────────────────────────────────── */}
+        <ComplaintForm />
 
-        {/* Footer/Help Link */}
-        <div className="mt-12 text-center text-sm text-gray-500">
-          <p>Need help? Check our <a href="#" className="text-purple-600 font-semibold hover:underline">FAQ</a> or <a href="#" className="text-purple-600 font-semibold hover:underline">Contact Support</a></p>
-          <div className="mt-8 flex justify-center items-center gap-6 opacity-60">
-            <span className="font-bold text-gray-400">APPSC</span>
-            <span className="h-4 w-px bg-gray-300"></span>
-            <span className="text-xs uppercase tracking-widest font-semibold">Government of Arunachal Pradesh</span>
+        {/* ── Footer note ─────────────────────────────────────── */}
+        <div className="mt-10 text-center text-xs text-slate-400 space-y-1">
+          <p>Need assistance? Contact the APPSC helpdesk at <span className="font-semibold text-slate-500">1800-XXX-XXXX</span> (toll-free)</p>
+          <div className="mt-4 flex justify-center items-center gap-4 opacity-70">
+            <span className="font-bold text-slate-400 tracking-wide">APPSC</span>
+            <span className="h-3 w-px bg-slate-300" />
+            <span className="uppercase tracking-widest font-semibold">Government of Arunachal Pradesh</span>
           </div>
         </div>
+
       </div>
     </main>
   );

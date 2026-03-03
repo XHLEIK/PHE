@@ -60,8 +60,7 @@ async function seedAdmin() {
       $set: {
         passwordHash,
         name: 'Seed Administrator',
-        role: 'superadmin',
-        securityLevel: 4,
+        role: 'head_admin',
         mustRotatePassword: true,
         isSeeded: true,
         isLocked: false,

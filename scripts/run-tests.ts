@@ -71,13 +71,13 @@ async function run() {
   });
 
   await test('U-04: generateAccessToken produces JWT string', () => {
-    const token = generateAccessToken({ userId: 'abc', email: 'a@b.com', role: 'admin', securityLevel: 4 });
+    const token = generateAccessToken({ userId: 'abc', email: 'a@b.com', role: 'head_admin' } as any);
     assert.ok(typeof token === 'string');
     assert.ok(token.split('.').length === 3, 'JWT should have 3 parts');
   });
 
   await test('U-05: verifyAccessToken decodes valid token', () => {
-    const token = generateAccessToken({ userId: 'abc', email: 'a@b.com', role: 'admin', securityLevel: 4 });
+    const token = generateAccessToken({ userId: 'abc', email: 'a@b.com', role: 'head_admin' } as any);
     const decoded = verifyAccessToken(token);
     assert.ok(decoded);
     assert.equal(decoded!.userId, 'abc');

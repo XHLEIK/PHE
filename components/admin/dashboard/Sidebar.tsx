@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
@@ -9,46 +9,62 @@ import {
   BarChart2, 
   Building2, 
   Settings,
-  CircleDot,
-  ShieldCheck
+  Shield
 } from 'lucide-react';
+import { getMe } from '@/lib/api-client';
 
 const Sidebar = () => {
   const pathname = usePathname();
+  const [userRole, setUserRole] = useState<string>('staff');
 
-  const menuItems = [
-    { name: 'Dashboard', icon: <LayoutDashboard size={20} />, href: '/admin/dashboard' },
-    { name: 'IT Complaints', icon: <FileText size={20} />, href: '/admin/complaints' },
-    { name: 'Exam Analytics', icon: <BarChart2 size={20} />, href: '/admin/analytics' },
-    { name: 'IT Departments', icon: <Building2 size={20} />, href: '/admin/departments' },
-    { name: 'Control Panel', icon: <Settings size={20} />, href: '/admin/settings' },
+  const fetchRole = useCallback(async () => {
+    try {
+      const result = await getMe();
+      if (result.success && result.data) {
+        setUserRole((result.data.user as Record<string, unknown>).role as string || 'staff');
+      }
+    } catch {
+      // defaults
+    }
+  }, []);
+
+  useEffect(() => { fetchRole(); }, [fetchRole]);
+
+  const allMenuItems = [
+    { name: 'Dashboard', icon: <LayoutDashboard size={20} />, href: '/admin/dashboard', roles: ['head_admin', 'department_admin', 'staff'] },
+    { name: 'Grievances', icon: <FileText size={20} />, href: '/admin/complaints', roles: ['head_admin', 'department_admin', 'staff'] },
+    { name: 'Analytics', icon: <BarChart2 size={20} />, href: '/admin/analytics', roles: ['head_admin', 'department_admin'] },
+    { name: 'Departments', icon: <Building2 size={20} />, href: '/admin/departments', roles: ['head_admin', 'department_admin'] },
+    { name: 'Settings', icon: <Settings size={20} />, href: '/admin/settings', roles: ['head_admin', 'department_admin'] },
   ];
 
+  const menuItems = allMenuItems.filter(item => item.roles.includes(userRole));
+
   return (
-    <aside className="w-64 h-screen bg-[#020617] border-r border-white/5 flex flex-col fixed left-0 top-0 z-20 overflow-y-auto">
-      <div className="p-8 border-b border-white/5 bg-[#020617]">
+    <aside className="w-64 h-screen bg-white border-r border-slate-200 flex flex-col fixed left-0 top-0 z-20 overflow-y-auto">
+      <div className="p-6 border-b border-slate-100">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
-             <ShieldCheck size={24} className="text-white" />
+          <div className="w-10 h-10 bg-amber-700 rounded-xl flex items-center justify-center shadow-lg shadow-amber-700/20">
+             <Shield size={22} className="text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-black text-white tracking-tight leading-none italic">SAMADHAN</h1>
-            <p className="text-[10px] font-bold text-emerald-500/60 uppercase tracking-widest mt-1">Smart IT Governance</p>
+            <h1 className="text-lg font-bold text-slate-900 tracking-tight leading-none">Samadhan AI</h1>
+            <p className="text-[10px] font-semibold text-amber-700 uppercase tracking-widest mt-0.5">State Grievance Services</p>
           </div>
         </div>
       </div>
 
-      <nav className="flex-1 p-4 space-y-1.5 mt-6">
+      <nav className="flex-1 p-3 space-y-1 mt-4">
         {menuItems.map((item) => {
           const isActive = pathname === item.href;
           return (
             <Link
               key={item.name}
               href={item.href}
-              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium text-sm ${
                 isActive 
-                  ? 'bg-emerald-500 text-white shadow-xl shadow-emerald-500/10' 
-                  : 'text-slate-500 hover:bg-white/5 hover:text-white'
+                  ? 'bg-amber-50 text-amber-800 border border-amber-200' 
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
               }`}
             >
               {item.icon}
@@ -58,36 +74,17 @@ const Sidebar = () => {
         })}
       </nav>
 
-      {/* System Status Box */}
+      {/* System Status */}
       <div className="p-4 mt-auto">
-        <div className="bg-slate-900/40 border border-white/5 rounded-2xl p-5 space-y-3 backdrop-blur-md">
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-            <CircleDot size={10} className="text-emerald-500 animate-pulse" />
-            Core Infrastructure
-          </p>
-          <div className="space-y-2.5">
-            <div className="flex justify-between items-center text-[11px] font-bold">
-              <span className="text-slate-400">Database</span>
-              <span className="text-emerald-500 uppercase tracking-tighter">SECURED</span>
-            </div>
-            <div className="flex justify-between items-center text-[11px] font-bold">
-              <span className="text-slate-400">Samadhan AI</span>
-              <span className="text-emerald-500 uppercase tracking-tighter">READY</span>
-            </div>
-            <div className="flex justify-between items-center text-[11px] font-bold">
-              <span className="text-slate-400">Latency</span>
-              <span className="text-emerald-500 uppercase tracking-tighter">42ms</span>
-            </div>
-            
-            <div className="pt-2">
-               <div className="flex justify-between items-center text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">
-                 <span>System Health</span>
-                 <span>98%</span>
-               </div>
-               <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                 <div className="h-full bg-emerald-500 rounded-full" style={{ width: '98%' }}></div>
-               </div>
-            </div>
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">System Status</p>
+          <div className="flex justify-between items-center text-xs">
+            <span className="text-slate-500">API</span>
+            <span className="text-emerald-600 font-semibold">Online</span>
+          </div>
+          <div className="flex justify-between items-center text-xs">
+            <span className="text-slate-500">AI Engine</span>
+            <span className="text-emerald-600 font-semibold">Active</span>
           </div>
         </div>
       </div>
