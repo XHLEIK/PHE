@@ -1,0 +1,13 @@
+# Samadhan AI — Python Voice Agent Dependencies
+# Install: pip install -r requirements.txt
+
+livekit-agents>=1.0.0
+livekit-plugins-noise-cancellation>=1.0.0
+livekit-plugins-silero>=1.0.0
+livekit-plugins-turn-detector>=1.0.0
+python-dotenv>=1.0.0
+
+# Inference provider plugins (STT, LLM, TTS)
+livekit-plugins-deepgram>=1.0.0
+livekit-plugins-openai>=1.0.0
+livekit-plugins-cartesia>=1.0.0

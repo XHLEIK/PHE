@@ -14,6 +14,7 @@ import Complaint from './models/Complaint';
 import Department from './models/Department';
 import { DEPARTMENT_IDS } from './constants';
 import { createAuditEntry } from './models/AuditLog';
+import { scheduleCall } from './call-scheduler';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_MODEL = 'gemini-2.5-flash';
@@ -278,6 +279,13 @@ export async function processAnalysis(complaintId: string): Promise<void> {
     });
 
     console.log(`[GEMINI] ✅ Analysis complete for ${complaintId}: ${analysis.category} (${(analysis.confidence * 100).toFixed(0)}% confidence)`);
+
+    // Schedule AI call if citizen consented (fire-and-forget, DB-driven)
+    setImmediate(() => {
+      scheduleCall(complaintId).catch(err => {
+        console.error(`[GEMINI] Failed to schedule call for ${complaintId}:`, err);
+      });
+    });
   } catch (err) {
     console.error(`[GEMINI] processAnalysis error for ${complaintId}:`, err);
     // Best-effort: mark deferred on unexpected error

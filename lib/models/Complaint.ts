@@ -30,6 +30,12 @@ export interface IComplaint extends Document {
   lastAnalysisAt: Date | null;
   // Attachments — backend-ready, not exposed in API until storage configured
   attachments: IAttachmentMeta[];
+  // AI Calling fields (denormalized from CallLog for quick filtering)
+  callStatus: 'not_called' | 'scheduled' | 'in_progress' | 'completed' | 'failed';
+  callAttempts: number;
+  lastCallAt: Date | null;
+  callScheduledAt: Date | null;
+  callConsent: boolean;
   // Legacy fields kept for backward compatibility
   aiAnalyzed: boolean;
   aiAnalysisResult: Record<string, unknown> | null;
@@ -146,6 +152,31 @@ const ComplaintSchema = new Schema<IComplaint>(
       type: [AttachmentMetaSchema],
       default: [],
     },
+    // AI Calling fields
+    callStatus: {
+      type: String,
+      enum: ['not_called', 'scheduled', 'in_progress', 'completed', 'failed'],
+      default: 'not_called',
+      index: true,
+    },
+    callAttempts: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    lastCallAt: {
+      type: Date,
+      default: null,
+    },
+    callScheduledAt: {
+      type: Date,
+      default: null,
+    },
+    callConsent: {
+      type: Boolean,
+      default: false,
+    },
+    // Legacy fields
     aiAnalyzed: {
       type: Boolean,
       default: false,

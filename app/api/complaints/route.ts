@@ -57,6 +57,7 @@ export async function POST(req: NextRequest) {
       analysisStatus: 'queued',
       analysisAttempts: 0,
       department: 'Unassigned',
+      callConsent: parsed.data.callConsent ?? false,
     });
 
     // Audit log

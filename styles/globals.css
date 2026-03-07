@@ -1,4 +1,6 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   --foreground-rgb: 30, 41, 59;
@@ -9,8 +11,5 @@ body {
   color: rgb(var(--foreground-rgb));
   background: rgb(var(--background-rgb));
   overflow-x: hidden;
-}
-
-@theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
 }

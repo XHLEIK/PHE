@@ -17,6 +17,7 @@ interface FormState {
   description: string;
   location: string;
   coordinates: Coordinates | null;
+  callConsent: boolean;
 }
 
 interface FieldErrors {
@@ -52,6 +53,7 @@ const ComplaintForm = () => {
     description: '',
     location: '',
     coordinates: null,
+    callConsent: true,
   });
 
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -184,6 +186,7 @@ const ComplaintForm = () => {
         submitterEmail: form.submitterEmail.trim(),
         location: form.location.trim() || undefined,
         coordinates: form.coordinates ?? undefined,
+        callConsent: form.callConsent,
       });
       if (result.success && result.data) {
         setSubmitResult({ success: true, complaintId: result.data.complaintId });
@@ -203,7 +206,7 @@ const ComplaintForm = () => {
 
   const resetForm = () => {
     setSubmitResult(null);
-    setForm({ submitterName: '', submitterPhone: '', submitterEmail: '', title: '', description: '', location: '', coordinates: null });
+    setForm({ submitterName: '', submitterPhone: '', submitterEmail: '', title: '', description: '', location: '', coordinates: null, callConsent: true });
     setErrors({});
     setGeoError(null);
   };
@@ -327,6 +330,21 @@ const ComplaintForm = () => {
                   />
                   {errors.submitterEmail && <ErrorMsg msg={errors.submitterEmail} />}
                 </div>
+              </div>
+
+              {/* Call Consent */}
+              <div className="mt-4">
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={form.callConsent}
+                    onChange={(e) => setForm(prev => ({ ...prev, callConsent: e.target.checked }))}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-amber-700 focus:ring-amber-500 accent-amber-700"
+                  />
+                  <span className="text-xs text-slate-500 leading-relaxed group-hover:text-slate-600 transition-colors">
+                    I consent to receive an automated call regarding this grievance. The call may be logged for resolution purposes.
+                  </span>
+                </label>
               </div>
             </div>
           </fieldset>

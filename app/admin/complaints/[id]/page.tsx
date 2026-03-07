@@ -6,6 +6,7 @@ import Sidebar from '@/components/admin/dashboard/Sidebar';
 import Topbar from '@/components/admin/dashboard/Topbar';
 import { getComplaintById, updateComplaint, getAuditLogs, revealContact, reanalyzeComplaint, getMe } from '@/lib/api-client';
 import { DEPARTMENTS, REVEAL_REASONS } from '@/lib/constants';
+import CallHistoryCard from '@/components/admin/dashboard/CallHistoryCard';
 import {
   ArrowLeft,
   Clock,
@@ -23,6 +24,7 @@ import {
   RefreshCw,
   Loader2,
   X,
+  Phone,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -86,6 +88,9 @@ const ComplaintDetailPage = () => {
 
   // Current user role for permission gating
   const [userRole, setUserRole] = useState<string>('staff');
+
+  // Active tab
+  const [activeTab, setActiveTab] = useState<'details' | 'calls' | 'audit'>('details');
 
   const fetchUserRole = useCallback(async () => {
     try {
@@ -292,6 +297,58 @@ const ComplaintDetailPage = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Main Info */}
             <div className="lg:col-span-2 space-y-6">
+              {/* Tab Bar */}
+              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+                <div className="flex border-b border-slate-200">
+                  <button
+                    onClick={() => setActiveTab('details')}
+                    className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-2 ${
+                      activeTab === 'details'
+                        ? 'border-amber-700 text-amber-800 bg-amber-50/50'
+                        : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <FileText size={14} />
+                    Details
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('calls')}
+                    className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-2 ${
+                      activeTab === 'calls'
+                        ? 'border-amber-700 text-amber-800 bg-amber-50/50'
+                        : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <Phone size={14} />
+                    Calls
+                    {Number(complaint.callAttempts || 0) > 0 && (
+                      <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-semibold">
+                        {String(complaint.callAttempts)}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('audit')}
+                    className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-2 ${
+                      activeTab === 'audit'
+                        ? 'border-amber-700 text-amber-800 bg-amber-50/50'
+                        : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <History size={14} />
+                    Audit
+                    {auditLogs.length > 0 && (
+                      <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full font-semibold">
+                        {auditLogs.length}
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* ═══ Details Tab ═══ */}
+              {activeTab === 'details' && (
+                <>
               {/* Complaint Details Card */}
               <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-5">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -422,14 +479,35 @@ const ComplaintDetailPage = () => {
                   )}
                 </div>
               )}
+                </>
+              )}
 
-              {/* Audit Trail */}
-              {auditLogs.length > 0 && (
+              {/* ═══ Calls Tab ═══ */}
+              {activeTab === 'calls' && (
+                <CallHistoryCard
+                  complaintId={complaintId}
+                  callConsent={!!complaint.callConsent}
+                  callStatus={String(complaint.callStatus || 'not_called')}
+                  callAttempts={Number(complaint.callAttempts || 0)}
+                  hasPhone={!!complaint.submitterPhone}
+                  userRole={userRole}
+                  onCallInitiated={fetchComplaint}
+                />
+              )}
+
+              {/* ═══ Audit Tab ═══ */}
+              {activeTab === 'audit' && (
                 <div className="bg-white border border-slate-200 rounded-xl p-6">
                   <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
                     <History size={16} className="text-slate-500" />
                     Activity History
                   </h3>
+                  {auditLogs.length === 0 ? (
+                    <div className="text-center py-8">
+                      <History size={24} className="text-slate-300 mx-auto mb-2" />
+                      <p className="text-sm text-slate-400">No audit entries found for this complaint.</p>
+                    </div>
+                  ) : (
                   <div className="space-y-3">
                     {auditLogs.map((log, i) => (
                       <div key={i} className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
@@ -459,6 +537,7 @@ const ComplaintDetailPage = () => {
                       </div>
                     ))}
                   </div>
+                  )}
                 </div>
               )}
             </div>

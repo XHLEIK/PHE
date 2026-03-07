@@ -104,6 +104,9 @@ export const createComplaintSchema = z.object({
     .trim()
     .max(300, 'Location must not exceed 300 characters')
     .default(''),
+  callConsent: z
+    .boolean()
+    .default(false),
 });
 
 export const updateComplaintSchema = z.object({

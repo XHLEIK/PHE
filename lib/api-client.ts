@@ -114,6 +114,7 @@ export interface ComplaintPayload {
   submitterEmail: string;
   location?: string;
   coordinates?: { lat: number; lng: number };
+  callConsent?: boolean;
 }
 
 export async function submitComplaint(data: ComplaintPayload) {
@@ -275,4 +276,21 @@ export async function getAuditLogs(query: { page?: number; limit?: number; actio
   });
   const qs = params.toString();
   return request<Record<string, unknown>[]>(`/api/admin/audit${qs ? `?${qs}` : ''}`);
+}
+
+// ── Call management ──────────────────────────────────────────────────
+
+export async function initiateCall(complaintId: string) {
+  return request<{ success: boolean; roomName: string; callLogId: string }>(
+    '/api/calls/initiate',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ complaintId }),
+    }
+  );
+}
+
+export async function getCallLogs(complaintId: string) {
+  return request<Record<string, unknown>[]>(`/api/calls/${complaintId}`);
 }
