@@ -1,32 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import Complaint from '@/lib/models/Complaint';
+import { generateTrackingId } from '@/lib/models/Counter';
 import { createAuditEntry } from '@/lib/models/AuditLog';
 import { verifyAccessToken } from '@/lib/auth';
-import { createComplaintSchema, complaintQuerySchema } from '@/lib/validations';
+import { createComplaintSchema, enhancedComplaintQuerySchema } from '@/lib/validations';
 import {
   successResponse,
   errorResponse,
   getClientIp,
   getAccessTokenFromCookies,
-  generateComplaintId,
-  checkRateLimit,
 } from '@/lib/api-utils';
+import { getComplaintRateLimiter, invalidateCacheByPrefix } from '@/lib/redis';
 import { processAnalysis } from '@/lib/gemini';
 import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
+import { toAdminCtx, authorize, buildScopeQuery, AuthorizationError } from '@/lib/rbac';
+import ChatSession from '@/lib/models/ChatSession';
+import ChatMessage from '@/lib/models/ChatMessage';
 
 /**
  * POST /api/complaints — Submit a new complaint (public, rate-limited)
  * Saves immediately, responds 201, then fires AI analysis asynchronously.
  */
+
+const MAX_JSON_SIZE = 100 * 1024; // 100 KB
+
 export async function POST(req: NextRequest) {
   const correlationId = uuidv4();
   const ip = getClientIp(req);
 
-  // Rate limit: per-IP, 10 complaints per 15 minutes
-  const rl = checkRateLimit(`complaint:${ip}`, 10, 900_000);
-  if (!rl.allowed) {
-    return errorResponse('Too many complaints submitted. Please try again later.', 429);
+  // Reject oversized payloads early
+  const contentLength = Number(req.headers.get('content-length') || '0');
+  if (contentLength > MAX_JSON_SIZE) {
+    return errorResponse('Request body too large. Maximum 100 KB.', 413);
+  }
+
+  // Redis-backed rate limit: per-IP, 10 complaints per 15 minutes
+  try {
+    const limiter = getComplaintRateLimiter();
+    const { success, remaining } = await limiter.limit(`complaint:${ip}`);
+    if (!success) {
+      return errorResponse('Too many complaints submitted. Please try again later.', 429);
+    }
+  } catch (rlErr) {
+    // If Redis is down, allow the request through (fail-open) but log
+    console.warn('[COMPLAINT] Redis rate limit unavailable, allowing request:', rlErr);
   }
 
   try {
@@ -41,7 +60,10 @@ export async function POST(req: NextRequest) {
 
     await connectDB();
 
-    const complaintId = generateComplaintId();
+    // Generate nationally-unique tracking ID using state/district from geolocation
+    const state = parsed.data.state || 'Arunachal Pradesh';
+    const district = parsed.data.district || 'General';
+    const complaintId = await generateTrackingId(state, district);
 
     const complaint = await Complaint.create({
       complaintId,
@@ -50,6 +72,8 @@ export async function POST(req: NextRequest) {
       category: 'pending_ai', // AI will assign this
       priority: 'medium',      // AI may override this
       location: parsed.data.location || '',
+      state,
+      district,
       submitterName: parsed.data.submitterName,
       submitterPhone: parsed.data.submitterPhone,
       submitterEmail: parsed.data.submitterEmail,
@@ -58,6 +82,16 @@ export async function POST(req: NextRequest) {
       analysisAttempts: 0,
       department: 'Unassigned',
       callConsent: parsed.data.callConsent ?? false,
+      attachments: (parsed.data.attachments || []).map((a) => ({
+        fileName: a.fileName,
+        fileType: a.fileType,
+        fileSize: a.fileSize,
+        storageKey: a.publicId,
+        url: a.url,
+        thumbnailUrl: a.thumbnailUrl || '',
+        streamingUrl: a.streamingUrl || '',
+        posterUrl: a.posterUrl || '',
+      })),
     });
 
     // Audit log
@@ -92,6 +126,35 @@ export async function POST(req: NextRequest) {
       processAnalysis(complaint.complaintId).catch(err => {
         console.error('[COMPLAINT POST] Fire-and-forget analysis error:', err);
       });
+      // Invalidate dashboard stats/analytics cache
+      invalidateCacheByPrefix('stats:').catch(() => {});
+      invalidateCacheByPrefix('analytics:').catch(() => {});
+
+      // Auto-create a ChatSession so the submitter can chat with AI
+      (async () => {
+        try {
+          const email = parsed.data.submitterEmail?.toLowerCase();
+          if (email) {
+            const existing = await ChatSession.findOne({ complaintId: complaint.complaintId });
+            if (!existing) {
+              const accessToken = crypto.randomBytes(32).toString('hex');
+              await ChatSession.create({
+                complaintId: complaint.complaintId,
+                email,
+                title: complaint.title,
+                accessToken,
+              });
+              await ChatMessage.create({
+                complaintId: complaint.complaintId,
+                senderType: 'user',
+                content: `I have filed a grievance:\n\n**Title:** ${complaint.title}\n\n**Description:** ${complaint.description}\n\n**Location:** ${complaint.location || 'Not specified'}\n\nPlease help me with this issue.`,
+              });
+            }
+          }
+        } catch (chatErr) {
+          console.error('[COMPLAINT POST] Chat session auto-create error:', chatErr);
+        }
+      })();
     });
 
     return response;
@@ -103,7 +166,7 @@ export async function POST(req: NextRequest) {
 
 /**
  * GET /api/complaints — List complaints (admin only, paginated, filterable)
- * department_admin: scoped to their departments only
+ * RBAC: scoped to admin's jurisdiction (location + department)
  */
 export async function GET(req: NextRequest) {
   try {
@@ -117,31 +180,53 @@ export async function GET(req: NextRequest) {
       return errorResponse('Invalid or expired token', 401);
     }
 
+    const adminCtx = toAdminCtx(payload);
+
+    try {
+      authorize(adminCtx, 'complaint:view');
+    } catch (e) {
+      if (e instanceof AuthorizationError) return errorResponse(e.message, 403);
+      throw e;
+    }
+
     const { searchParams } = new URL(req.url);
     const queryObj: Record<string, string> = {};
     searchParams.forEach((value, key) => { queryObj[key] = value; });
 
-    const parsed = complaintQuerySchema.safeParse(queryObj);
+    const parsed = enhancedComplaintQuerySchema.safeParse(queryObj);
     if (!parsed.success) {
       return errorResponse('Invalid query parameters', 400,
         parsed.error.issues.map((e: any) => ({ field: e.path.join('.'), message: e.message }))
       );
     }
 
-    const { page, limit, status, priority, sort, search, department } = parsed.data;
+    const { page, limit, status, priority, sort, search, department, assignedTo, slaBreached, dateFrom, dateTo, cursor } = parsed.data;
 
     await connectDB();
 
-    // Build filter — enforce department scoping for department_admin and staff
-    const filter: Record<string, unknown> = {};
-    if ((payload.role === 'department_admin' || payload.role === 'staff') && payload.departments?.length) {
-      filter.department = { $in: payload.departments };
-    }
+    // Build filter — enforce RBAC scope (location + department)
+    const scopeFilter = buildScopeQuery(adminCtx);
+    const filter: Record<string, unknown> = { ...scopeFilter };
+
     if (status) filter.status = status;
     if (priority) filter.priority = priority;
     if (department) filter.department = department;
+    if (assignedTo) filter.assignedTo = assignedTo;
+    if (slaBreached !== undefined) filter.slaBreached = slaBreached === 'true';
     if (search) {
       filter.$text = { $search: search };
+    }
+
+    // Date range filtering on createdAt
+    if (dateFrom || dateTo) {
+      const dateFilter: Record<string, Date> = {};
+      if (dateFrom) dateFilter.$gte = new Date(dateFrom);
+      if (dateTo) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        dateFilter.$lte = end;
+      }
+      filter.createdAt = dateFilter;
     }
 
     // Build sort
@@ -149,7 +234,13 @@ export async function GET(req: NextRequest) {
     const sortOrder = sort.startsWith('-') ? -1 : 1;
     const sortObj: Record<string, 1 | -1> = { [sortField]: sortOrder };
 
-    const skip = (page - 1) * limit;
+    // Cursor-based pagination: use _id as tie-breaker
+    if (cursor) {
+      filter._id = sortOrder === -1 ? { $lt: cursor } : { $gt: cursor };
+    }
+
+    const useCursor = !!cursor;
+    const skip = useCursor ? 0 : (page - 1) * limit;
 
     const [complaints, total] = await Promise.all([
       Complaint.find(filter)
@@ -158,14 +249,18 @@ export async function GET(req: NextRequest) {
         .limit(limit)
         .select('-submitterPhone -submitterEmail') // always mask in list
         .lean(),
-      Complaint.countDocuments(filter),
+      Complaint.countDocuments(useCursor ? {} : filter), // skip count on cursor mode for perf
     ]);
 
+    const lastItem = complaints[complaints.length - 1];
+    const nextCursor = lastItem ? String((lastItem as unknown as { _id: unknown })._id) : null;
+
     return successResponse(complaints, {
-      page,
+      page: useCursor ? undefined : page,
       limit,
-      total,
-      totalPages: Math.ceil(total / limit),
+      total: useCursor ? undefined : total,
+      totalPages: useCursor ? undefined : Math.ceil(total / limit),
+      nextCursor,
     });
   } catch (err) {
     console.error('[COMPLAINT LIST ERROR]', err);

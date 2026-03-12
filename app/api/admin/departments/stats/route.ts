@@ -5,10 +5,12 @@ import Complaint from '@/lib/models/Complaint';
 import User from '@/lib/models/User';
 import { verifyAccessToken } from '@/lib/auth';
 import { successResponse, errorResponse, getAccessTokenFromCookies } from '@/lib/api-utils';
+import { authorize, toAdminCtx, getRoleLevel } from '@/lib/rbac';
 
 /**
  * GET /api/admin/departments/stats
  * Returns department list enriched with live grievance counts and assigned admin counts.
+ * Requires department:view permission.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -16,6 +18,9 @@ export async function GET(req: NextRequest) {
     if (!token) return errorResponse('Authentication required', 401);
     const payload = verifyAccessToken(token);
     if (!payload) return errorResponse('Invalid or expired token', 401);
+
+    const adminCtx = toAdminCtx(payload);
+    authorize(adminCtx, 'department:view');
 
     await connectDB();
 
@@ -43,9 +48,9 @@ export async function GET(req: NextRequest) {
       grievanceMap[g._id] = { total: g.total, resolved: g.resolved, pending: g.pending };
     });
 
-    // Aggregate admin counts by department
+    // Aggregate admin counts by department (all roles with departments assigned)
     const adminAgg = await User.aggregate([
-      { $match: { role: { $in: ['department_admin', 'staff'] } } },
+      { $match: { departments: { $exists: true, $ne: [] } } },
       { $unwind: '$departments' },
       {
         $group: {
@@ -55,8 +60,8 @@ export async function GET(req: NextRequest) {
       },
     ]);
 
-    // Also count head_admins (they have access to all departments)
-    const headAdminCount = await User.countDocuments({ role: 'head_admin' });
+    // Count admins at level ≤ 1 (head_admin, cabinet) — they have access to all departments
+    const globalAdminCount = await User.countDocuments({ role: { $in: ['head_admin', 'cabinet'] } });
 
     const adminMap: Record<string, number> = {};
     adminAgg.forEach((a) => {
@@ -77,7 +82,7 @@ export async function GET(req: NextRequest) {
         totalGrievances: stats.total,
         resolvedGrievances: stats.resolved,
         pendingGrievances: stats.pending,
-        assignedAdmins: deptAdmins + headAdminCount, // head_admins have access to all
+        assignedAdmins: deptAdmins + globalAdminCount, // global admins have access to all
       };
     });
 

@@ -2,14 +2,18 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Bell, ChevronDown, LogOut } from 'lucide-react';
+import { Search, ChevronDown, LogOut, MapPin } from 'lucide-react';
 import { getMe, logoutAdmin } from '@/lib/api-client';
+import NotificationDropdown from './NotificationDropdown';
+import { ROLE_META, type AdminRole } from '@/lib/rbac/client';
 
 const Topbar = () => {
   const router = useRouter();
   const [userName, setUserName] = useState('Admin');
   const [userInitials, setUserInitials] = useState('AD');
   const [userRole, setUserRole] = useState('Administrator');
+  const [roleBadgeColor, setRoleBadgeColor] = useState('text-amber-700 bg-amber-50 border-amber-200');
+  const [scopeLabel, setScopeLabel] = useState('');
   const [showMenu, setShowMenu] = useState(false);
 
   const fetchUser = useCallback(async () => {
@@ -20,11 +24,24 @@ const Topbar = () => {
         const name = (user.name as string) || 'Admin';
         setUserName(name);
         setUserInitials(name.substring(0, 2).toUpperCase());
-        const role = (user.role as string) || 'staff';
-        if (role === 'head_admin') setUserRole('Head Administrator');
-        else if (role === 'department_admin') setUserRole('Department Admin');
-        else if (role === 'staff') setUserRole('Staff');
-        else setUserRole('Administrator');
+        const role = (user.role as string) || 'support_staff';
+        const meta = ROLE_META[role as AdminRole];
+        if (meta) {
+          setUserRole(meta.shortLabel);
+          setRoleBadgeColor(meta.badgeColor);
+        } else {
+          setUserRole('Administrator');
+        }
+        // Build scope label from locationScope
+        const ls = user.locationScope as Record<string, string> | undefined;
+        if (ls) {
+          const parts: string[] = [];
+          if (ls.area) parts.push(ls.area);
+          if (ls.block) parts.push(ls.block);
+          if (ls.district) parts.push(ls.district);
+          if (ls.state) parts.push(ls.state);
+          setScopeLabel(parts.slice(0, 2).join(', '));
+        }
       }
     } catch {
       // defaults
@@ -54,10 +71,7 @@ const Topbar = () => {
           />
         </div>
 
-        <button className="p-2 text-slate-400 hover:text-slate-700 transition-colors relative">
-          <Bell size={18} />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full"></span>
-        </button>
+        <NotificationDropdown />
         
         <div className="h-6 w-px bg-slate-200"></div>
         
@@ -68,7 +82,17 @@ const Topbar = () => {
           >
             <div className="text-right">
               <p className="text-sm font-semibold text-slate-700">{userName}</p>
-              <p className="text-[10px] text-slate-400">{userRole}</p>
+              <div className="flex items-center gap-1.5 justify-end">
+                <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${roleBadgeColor}`}>
+                  {userRole}
+                </span>
+                {scopeLabel && (
+                  <span className="text-[9px] text-slate-400 flex items-center gap-0.5">
+                    <MapPin size={8} />
+                    {scopeLabel}
+                  </span>
+                )}
+              </div>
             </div>
             <div className="w-9 h-9 rounded-full bg-amber-700 flex items-center justify-center text-white font-bold text-xs">
               {userInitials}

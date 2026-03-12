@@ -2,20 +2,19 @@ import { NextRequest } from 'next/server';
 import { processScheduledCalls } from '@/lib/call-scheduler';
 import { successResponse, errorResponse } from '@/lib/api-utils';
 
-const SCHEDULER_SECRET = process.env.SCHEDULER_SECRET || '';
-
 /**
  * GET /api/calls/process-scheduled — Cron worker endpoint
  * Processes pending scheduled calls from the database.
- * Secured via SCHEDULER_SECRET header — must match env var.
- * Called by external cron every 60 seconds.
+ * Protected by CRON_SECRET via Vercel's standard Bearer auth header.
+ * Registered in vercel.json to run every minute.
  */
 export async function GET(req: NextRequest) {
   try {
-    // ── Validate scheduler secret ───────────────────────────────────────────
-    const authHeader = req.headers.get('x-scheduler-secret') || '';
+    // ── Validate cron secret (Vercel sends `Authorization: Bearer <CRON_SECRET>`) ──
+    const cronSecret = process.env.CRON_SECRET;
+    const authHeader = req.headers.get('authorization') || '';
 
-    if (!SCHEDULER_SECRET || authHeader !== SCHEDULER_SECRET) {
+    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
       return errorResponse('Unauthorized', 401);
     }
 

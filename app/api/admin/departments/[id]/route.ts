@@ -3,10 +3,12 @@ import connectDB from '@/lib/db';
 import Department, { auditDepartmentChange } from '@/lib/models/Department';
 import { verifyAccessToken } from '@/lib/auth';
 import { successResponse, errorResponse, getAccessTokenFromCookies, getClientIp } from '@/lib/api-utils';
+import { authorize, toAdminCtx } from '@/lib/rbac';
 
 /**
- * PATCH /api/admin/departments/[id] — Update department metadata (head_admin only)
- * Soft-delete: set active=false instead of hard deletion
+ * PATCH /api/admin/departments/[id] — Update department metadata
+ * Requires department:update permission.
+ * Soft-delete: set active=false instead of hard deletion.
  */
 export async function PATCH(
   req: NextRequest,
@@ -18,9 +20,8 @@ export async function PATCH(
     const payload = verifyAccessToken(token);
     if (!payload) return errorResponse('Invalid or expired token', 401);
 
-    if (payload.role !== 'head_admin') {
-      return errorResponse('Only head administrators can modify departments', 403);
-    }
+    const adminCtx = toAdminCtx(payload);
+    authorize(adminCtx, 'department:update');
 
     const { id } = await params;
     const body = await req.json();

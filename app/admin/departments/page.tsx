@@ -6,6 +6,7 @@ import Topbar from '@/components/admin/dashboard/Topbar';
 import { getDepartmentStats } from '@/lib/api-client';
 import { DEPARTMENTS } from '@/lib/constants';
 import { Building2, Clock, AlertTriangle, Users, FileText, CheckCircle2, Loader2 } from 'lucide-react';
+import DepartmentEditModal from '@/components/admin/DepartmentEditModal';
 
 interface DeptStat {
   id: string;
@@ -33,6 +34,7 @@ const fallbackDepts = (): DeptStat[] =>
 const DepartmentsPage = () => {
   const [departments, setDepartments] = useState<DeptStat[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedDept, setSelectedDept] = useState<DeptStat | null>(null);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -93,7 +95,7 @@ const DepartmentsPage = () => {
               {activeDepts.map(dept => {
                 const resRate = dept.totalGrievances > 0 ? Math.round((dept.resolvedGrievances / dept.totalGrievances) * 100) : 0;
                 return (
-                  <div key={dept.id} className="bg-white border border-slate-200 p-5 rounded-xl hover:shadow-sm hover:border-amber-300 transition-all group">
+                  <div key={dept.id} onClick={() => setSelectedDept(dept)} className="bg-white border border-slate-200 p-5 rounded-xl hover:shadow-sm hover:border-amber-300 transition-all group cursor-pointer">
                     <div className="flex items-start justify-between mb-3">
                       <div className="p-2 bg-amber-50 rounded-lg">
                         <Building2 size={18} className="text-amber-700" />
@@ -165,6 +167,14 @@ const DepartmentsPage = () => {
           )}
         </main>
       </div>
+
+      {selectedDept && (
+        <DepartmentEditModal
+          department={selectedDept}
+          onClose={() => setSelectedDept(null)}
+          onSave={async () => { setSelectedDept(null); await fetchStats(); }}
+        />
+      )}
     </div>
   );
 };

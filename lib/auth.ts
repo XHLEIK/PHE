@@ -1,6 +1,8 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import type { AdminRole } from '@/lib/rbac/roles';
+import type { LocationScope } from '@/lib/rbac/scope';
 
 const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET!;
 const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET!;
@@ -10,8 +12,10 @@ const REFRESH_EXPIRY = process.env.JWT_REFRESH_EXPIRY || '7d';
 export interface TokenPayload {
   userId: string;
   email: string;
-  role: 'head_admin' | 'department_admin' | 'staff';
-  departments?: string[]; // populated for department_admin and staff roles
+  role: AdminRole | 'citizen';
+  departments?: string[];       // populated for department-scoped admin roles
+  locationScope?: LocationScope; // populated for admin roles
+  citizenId?: string;           // populated for citizen role
 }
 
 // ---------------------------------------------------------------------------
@@ -81,6 +85,46 @@ export function clearAuthCookies(): string[] {
     'access_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0',
     'refresh_token=; HttpOnly; SameSite=Strict; Path=/api/auth; Max-Age=0',
   ];
+}
+
+// ---------------------------------------------------------------------------
+// Citizen cookie helpers (separate from admin cookies)
+// ---------------------------------------------------------------------------
+export function setCitizenCookies(
+  accessToken: string,
+  refreshToken: string
+): string[] {
+  const secure = process.env.NODE_ENV === 'production';
+  const securePart = secure ? 'Secure; ' : '';
+  return [
+    `citizen_access_token=${accessToken}; HttpOnly; ${securePart}SameSite=Strict; Path=/; Max-Age=900`,
+    `citizen_refresh_token=${refreshToken}; HttpOnly; ${securePart}SameSite=Strict; Path=/api/citizen/auth; Max-Age=604800`,
+  ];
+}
+
+export function clearCitizenAuthCookies(): string[] {
+  return [
+    'citizen_access_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0',
+    'citizen_refresh_token=; HttpOnly; SameSite=Strict; Path=/api/citizen/auth; Max-Age=0',
+  ];
+}
+
+/**
+ * Extract the citizen access token from cookies.
+ */
+export function getCitizenAccessTokenFromCookies(
+  req: import('next/server').NextRequest
+): string | null {
+  return req.cookies.get('citizen_access_token')?.value ?? null;
+}
+
+/**
+ * Extract the citizen refresh token from cookies.
+ */
+export function getCitizenRefreshTokenFromCookies(
+  req: import('next/server').NextRequest
+): string | null {
+  return req.cookies.get('citizen_refresh_token')?.value ?? null;
 }
 
 // ---------------------------------------------------------------------------

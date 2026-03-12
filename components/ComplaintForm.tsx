@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { submitComplaint } from '@/lib/api-client';
+import FileUpload, { type UploadedFile } from '@/components/FileUpload';
 
 interface Coordinates {
   lat: number;
@@ -16,6 +17,8 @@ interface FormState {
   title: string;
   description: string;
   location: string;
+  state: string;
+  district: string;
   coordinates: Coordinates | null;
   callConsent: boolean;
 }
@@ -52,11 +55,14 @@ const ComplaintForm = () => {
     title: '',
     description: '',
     location: '',
+    state: '',
+    district: '',
     coordinates: null,
     callConsent: true,
   });
 
   const [errors, setErrors] = useState<FieldErrors>({});
+  const [attachments, setAttachments] = useState<UploadedFile[]>([]);
   const [isGeolocating, setIsGeolocating] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -136,7 +142,9 @@ const ComplaintForm = () => {
               parts.length > 0
                 ? parts.join(', ')
                 : (d.display_name?.split(',').slice(0, 3).join(', ').trim() ?? `${lat.toFixed(4)}, ${lng.toFixed(4)}`);
-            setForm(prev => ({ ...prev, location: locStr, coordinates: { lat, lng } }));
+            const geoState = (a.state as string) || '';
+            const geoDistrict = (a.state_district as string) || (a.city as string) || (a.town as string) || (a.village as string) || '';
+            setForm(prev => ({ ...prev, location: locStr, state: geoState, district: geoDistrict, coordinates: { lat, lng } }));
           } else {
             setForm(prev => ({ ...prev, location: `${lat.toFixed(5)}, ${lng.toFixed(5)}`, coordinates: { lat, lng } }));
           }
@@ -185,8 +193,11 @@ const ComplaintForm = () => {
         submitterPhone: form.submitterPhone.trim(),
         submitterEmail: form.submitterEmail.trim(),
         location: form.location.trim() || undefined,
+        state: form.state.trim() || undefined,
+        district: form.district.trim() || undefined,
         coordinates: form.coordinates ?? undefined,
         callConsent: form.callConsent,
+        attachments: attachments.length > 0 ? attachments : undefined,
       });
       if (result.success && result.data) {
         setSubmitResult({ success: true, complaintId: result.data.complaintId });
@@ -206,8 +217,9 @@ const ComplaintForm = () => {
 
   const resetForm = () => {
     setSubmitResult(null);
-    setForm({ submitterName: '', submitterPhone: '', submitterEmail: '', title: '', description: '', location: '', coordinates: null, callConsent: true });
+    setForm({ submitterName: '', submitterPhone: '', submitterEmail: '', title: '', description: '', location: '', state: '', district: '', coordinates: null, callConsent: true });
     setErrors({});
+    setAttachments([]);
     setGeoError(null);
   };
 
@@ -387,6 +399,19 @@ const ComplaintForm = () => {
                   className={`${inputCls(errors.description)} resize-none`}
                 />
                 {errors.description && <ErrorMsg msg={errors.description} />}
+              </div>
+
+              {/* File Attachments */}
+              <div>
+                <label className="block text-sm font-semibold text-[#1e293b] mb-1">
+                  Attachments{' '}
+                  <span className="text-slate-400 font-normal text-xs">(optional — images or videos)</span>
+                </label>
+                <FileUpload
+                  maxFiles={5}
+                  onFilesChange={setAttachments}
+                  existingFiles={attachments}
+                />
               </div>
 
               {/* Incident Location */}

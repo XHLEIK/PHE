@@ -7,6 +7,9 @@ import Topbar from '@/components/admin/dashboard/Topbar';
 import { getComplaintById, updateComplaint, getAuditLogs, revealContact, reanalyzeComplaint, getMe } from '@/lib/api-client';
 import { DEPARTMENTS, REVEAL_REASONS } from '@/lib/constants';
 import CallHistoryCard from '@/components/admin/dashboard/CallHistoryCard';
+import SLABadge from '@/components/admin/dashboard/SLABadge';
+import InternalNotes from '@/components/admin/dashboard/InternalNotes';
+import AssignmentPicker from '@/components/admin/dashboard/AssignmentPicker';
 import {
   ArrowLeft,
   Clock,
@@ -25,8 +28,10 @@ import {
   Loader2,
   X,
   Phone,
+  MessageSquare,
 } from 'lucide-react';
 import Link from 'next/link';
+import AttachmentGallery from '@/components/AttachmentGallery';
 
 const priorityColors: Record<string, string> = {
   critical: 'text-rose-700 bg-rose-50 border-rose-200',
@@ -90,7 +95,7 @@ const ComplaintDetailPage = () => {
   const [userRole, setUserRole] = useState<string>('staff');
 
   // Active tab
-  const [activeTab, setActiveTab] = useState<'details' | 'calls' | 'audit'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'calls' | 'notes' | 'audit'>('details');
 
   const fetchUserRole = useCallback(async () => {
     try {
@@ -214,18 +219,31 @@ const ComplaintDetailPage = () => {
     }
 
     setUpdating(true);
+
+    // Optimistic update — apply changes immediately, revert on failure
+    const previousComplaint = complaint ? { ...complaint } : null;
+    if (complaint) {
+      const optimistic = { ...complaint };
+      if (updates.status) optimistic.status = updates.status;
+      if (updates.priority) optimistic.priority = updates.priority;
+      if (updates.department) optimistic.department = updates.department;
+      setComplaint(optimistic);
+    }
+
     try {
       const result = await updateComplaint(complaintId, updates);
       if (result.success) {
         setUpdateMsg('Complaint updated successfully');
         setReason('');
         setComment('');
-        fetchComplaint();
+        fetchComplaint(); // Refresh with server truth
         fetchAudit();
       } else {
+        setComplaint(previousComplaint); // Revert on failure
         setUpdateErr(result.error || 'Update failed');
       }
     } catch {
+      setComplaint(previousComplaint); // Revert on failure
       setUpdateErr('Network error');
     } finally {
       setUpdating(false);
@@ -328,6 +346,22 @@ const ComplaintDetailPage = () => {
                     )}
                   </button>
                   <button
+                    onClick={() => setActiveTab('notes')}
+                    className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-2 ${
+                      activeTab === 'notes'
+                        ? 'border-amber-700 text-amber-800 bg-amber-50/50'
+                        : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <MessageSquare size={14} />
+                    Notes
+                    {Number(complaint.internalNoteCount || 0) > 0 && (
+                      <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full font-semibold">
+                        {String(complaint.internalNoteCount)}
+                      </span>
+                    )}
+                  </button>
+                  <button
                     onClick={() => setActiveTab('audit')}
                     className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-2 ${
                       activeTab === 'audit'
@@ -358,10 +392,33 @@ const ComplaintDetailPage = () => {
                   <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded border ${statusColors[currentStatus] || 'text-slate-600 bg-slate-100 border-slate-200'}`}>
                     {statusLabel(currentStatus)}
                   </span>
+                  <SLABadge
+                    slaDeadline={(complaint.slaDeadline as string) || null}
+                    slaBreached={!!complaint.slaBreached}
+                    status={currentStatus}
+                  />
                 </div>
 
                 <h2 className="text-lg font-semibold text-slate-900">{String(complaint.title || '')}</h2>
                 <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{String(complaint.description || '')}</p>
+
+                {/* Attachments */}
+                {Array.isArray(complaint.attachments) && (complaint.attachments as Array<Record<string, unknown>>).length > 0 && (
+                  <div className="pt-3">
+                    <AttachmentGallery
+                      attachments={(complaint.attachments as Array<Record<string, unknown>>).map((att) => ({
+                        fileName: String(att.fileName || 'File'),
+                        fileType: String(att.fileType || ''),
+                        fileSize: Number(att.fileSize || 0),
+                        url: String(att.url || ''),
+                        thumbnailUrl: String(att.thumbnailUrl || ''),
+                        storageKey: String(att.storageKey || att.publicId || ''),
+                        streamingUrl: String(att.streamingUrl || ''),
+                        posterUrl: String(att.posterUrl || ''),
+                      }))}
+                    />
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-slate-100">
                   <div className="space-y-1">
@@ -493,6 +550,11 @@ const ComplaintDetailPage = () => {
                   userRole={userRole}
                   onCallInitiated={fetchComplaint}
                 />
+              )}
+
+              {/* ═══ Notes Tab ═══ */}
+              {activeTab === 'notes' && (
+                <InternalNotes complaintId={complaintId} />
               )}
 
               {/* ═══ Audit Tab ═══ */}
@@ -652,6 +714,14 @@ const ComplaintDetailPage = () => {
                 </div>
               </div>
 
+              {/* Assignment */}
+              <AssignmentPicker
+                complaintId={complaintId}
+                complaintDepartment={String(complaint.department || '')}
+                currentAssignee={complaint.assignedTo as string | undefined}
+                onAssigned={() => { fetchComplaint(); }}
+              />
+
               {/* Quick Info */}
               <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-3">
                 <h3 className="text-sm font-semibold text-slate-900 mb-2">Quick Info</h3>
@@ -661,8 +731,16 @@ const ComplaintDetailPage = () => {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-500">Assigned To</span>
-                  <span className="text-slate-700 font-medium">{String(complaint.assignedTo || 'Unassigned')}</span>
+                  <span className="text-slate-700 font-medium">{String(complaint.assignedToName || complaint.assignedTo || 'Unassigned')}</span>
                 </div>
+                {!!complaint.slaDeadline && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-500">SLA Deadline</span>
+                    <span className={`font-medium ${complaint.slaBreached ? 'text-rose-600' : 'text-slate-700'}`}>
+                      {formatDate(complaint.slaDeadline)}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-500">Category</span>
                   <span className="text-slate-700 font-medium">{String(complaint.category || '—')}</span>

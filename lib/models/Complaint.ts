@@ -1,7 +1,16 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
+export interface IEscalationEntry {
+  fromDepartment: string;
+  toDepartment: string;
+  reason: string;
+  escalatedBy: string; // admin email
+  escalatedAt: Date;
+}
+
 export interface IComplaint extends Document {
-  complaintId: string; // Human-readable ID e.g. "GRV-20260228-0001"
+  complaintId: string; // Human-readable ID e.g. "GRV-AR-PAP-2026-000001"
+  citizenId: mongoose.Types.ObjectId | null; // Linked citizen account (null for anonymous)
   title: string;
   description: string;
   category: string;
@@ -10,11 +19,21 @@ export interface IComplaint extends Document {
   location: string;
   department: string;
   assignedTo: string | null; // admin email
+  assignedToName: string | null; // denormalized admin display name
+  // SLA tracking
+  slaDeadline: Date | null;
+  slaBreached: boolean;
+  // Escalation history
+  escalationHistory: IEscalationEntry[];
+  // Internal notes count (denormalized)
+  internalNoteCount: number;
   // Submitter contact info (always stored, masked in API responses)
   submitterName: string | null;
   submitterPhone: string | null;
   submitterEmail: string | null;
-  // Geographic coordinates from browser geolocation
+  // Geographic data
+  state: string;
+  district: string;
   coordinates: { lat: number; lng: number } | null;
   // AI analysis pipeline fields
   analysisStatus: 'queued' | 'processing' | 'completed' | 'deferred';
@@ -45,9 +64,13 @@ export interface IComplaint extends Document {
 
 export interface IAttachmentMeta {
   fileName: string;
-  fileType: string;
+  fileType: string; // 'image' | 'video'
   fileSize: number;
-  storageKey: string; // key in object storage
+  storageKey: string; // Cloudinary publicId
+  url: string; // Cloudinary optimized delivery URL
+  thumbnailUrl: string; // Cloudinary thumbnail / video poster
+  streamingUrl: string; // Optimized video URL (empty for images)
+  posterUrl: string; // Full-size video poster frame (empty for images)
   uploadedAt: Date;
 }
 
@@ -57,6 +80,10 @@ const AttachmentMetaSchema = new Schema<IAttachmentMeta>(
     fileType: { type: String, required: true },
     fileSize: { type: Number, required: true },
     storageKey: { type: String, required: true },
+    url: { type: String, required: true },
+    thumbnailUrl: { type: String, default: '' },
+    streamingUrl: { type: String, default: '' },
+    posterUrl: { type: String, default: '' },
     uploadedAt: { type: Date, default: Date.now },
   },
   { _id: false }
@@ -68,6 +95,12 @@ const ComplaintSchema = new Schema<IComplaint>(
       type: String,
       required: true,
       unique: true,
+      index: true,
+    },
+    citizenId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Citizen',
+      default: null,
       index: true,
     },
     title: {
@@ -111,6 +144,44 @@ const ComplaintSchema = new Schema<IComplaint>(
       type: String,
       default: null,
     },
+    assignedToName: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    // SLA tracking
+    slaDeadline: {
+      type: Date,
+      default: null,
+      index: true,
+    },
+    slaBreached: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    // Escalation history
+    escalationHistory: {
+      type: [
+        new Schema(
+          {
+            fromDepartment: { type: String, required: true },
+            toDepartment: { type: String, required: true },
+            reason: { type: String, required: true, maxlength: 500 },
+            escalatedBy: { type: String, required: true },
+            escalatedAt: { type: Date, default: Date.now },
+          },
+          { _id: false }
+        ),
+      ],
+      default: [],
+    },
+    // Internal notes count (denormalized for list views)
+    internalNoteCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     submitterName: {
       type: String,
       trim: true,
@@ -126,6 +197,18 @@ const ComplaintSchema = new Schema<IComplaint>(
       trim: true,
       lowercase: true,
       default: null,
+    },
+    state: {
+      type: String,
+      trim: true,
+      default: '',
+      index: true,
+    },
+    district: {
+      type: String,
+      trim: true,
+      default: '',
+      index: true,
     },
     coordinates: {
       type: new Schema({ lat: Number, lng: Number }, { _id: false }),
@@ -193,6 +276,18 @@ const ComplaintSchema = new Schema<IComplaint>(
 
 // Text index for search on title and description
 ComplaintSchema.index({ title: 'text', description: 'text' });
+// SLA: overdue complaints query
+ComplaintSchema.index({ slaBreached: 1, slaDeadline: 1, status: 1 });
+// Assignment queries
+ComplaintSchema.index({ assignedTo: 1, status: 1 });
+// Department + status for filtered listing
+ComplaintSchema.index({ department: 1, status: 1, createdAt: -1 });
+// Citizen dashboard: complaints by citizenId
+ComplaintSchema.index({ citizenId: 1, createdAt: -1 });
+// Citizen dashboard: complaints by submitter email (for pre-registration complaints)
+ComplaintSchema.index({ submitterEmail: 1, createdAt: -1 });
+// Priority + status for admin dashboard
+ComplaintSchema.index({ priority: 1, status: 1 });
 
 const Complaint: Model<IComplaint> =
   mongoose.models.Complaint || mongoose.model<IComplaint>('Complaint', ComplaintSchema);

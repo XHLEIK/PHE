@@ -4,12 +4,17 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Sidebar from '@/components/admin/dashboard/Sidebar';
 import Topbar from '@/components/admin/dashboard/Topbar';
-import { Clock, ChevronRight, Search, ChevronLeft, BrainCircuit, Loader2 } from 'lucide-react';
+import { Clock, ChevronRight, Search, ChevronLeft, BrainCircuit, Loader2, Download } from 'lucide-react';
 import { getComplaints } from '@/lib/api-client';
 import { getDevComplaints } from '@/lib/dev-fixtures';
+import BulkActionBar from '@/components/admin/dashboard/BulkActionBar';
+import SLABadge from '@/components/admin/dashboard/SLABadge';
+import { ComplaintRowSkeleton } from '@/components/skeletons/Skeletons';
+import EmptyState from '@/components/EmptyState';
 
 interface ComplaintItem {
   id: string;
+  _id: string;
   title: string;
   description: string;
   priority: string;
@@ -19,6 +24,9 @@ interface ComplaintItem {
   aiSummary?: string | null;
   aiConfidence?: number | null;
   analysisStatus?: string | null;
+  slaDeadline?: string | null;
+  slaBreached?: boolean;
+  assignedToName?: string | null;
 }
 
 const priorityColors: Record<string, string> = {
@@ -45,6 +53,7 @@ const ComplaintsPage = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -57,6 +66,7 @@ const ComplaintsPage = () => {
       if (result.success && result.data) {
         const mapped: ComplaintItem[] = (result.data as Array<Record<string, unknown>>).map((c) => ({
           id: (c.complaintId as string) || (c._id as string) || '',
+          _id: (c._id as string) || '',
           title: (c.title as string) || '',
           description: (c.description as string) || '',
           priority: ((c.priority as string) || 'medium').toUpperCase(),
@@ -66,22 +76,27 @@ const ComplaintsPage = () => {
           aiSummary: (c.aiSummary as string) || null,
           aiConfidence: (c.aiConfidence as number) || null,
           analysisStatus: (c.analysisStatus as string) || null,
+          slaDeadline: (c.slaDeadline as string) || null,
+          slaBreached: (c.slaBreached as boolean) || false,
+          assignedToName: (c.assignedToName as string) || null,
         }));
         setComplaints(mapped);
         setTotalCount(result.meta?.total ?? mapped.length);
       } else {
         const dev = getDevComplaints();
         setComplaints(dev.map(d => ({
-          id: d.id, title: d.title, description: d.description,
+          _id: d.id, id: d.id, title: d.title, description: d.description,
           priority: d.priority, status: d.status.toUpperCase().replace(/ /g, '_'), time: d.time, department: d.department,
+          slaDeadline: null, slaBreached: false, assignedToName: null,
         })));
         setTotalCount(dev.length);
       }
     } catch {
       const dev = getDevComplaints();
       setComplaints(dev.map(d => ({
-        id: d.id, title: d.title, description: d.description,
+        _id: d.id, id: d.id, title: d.title, description: d.description,
         priority: d.priority, status: d.status.toUpperCase().replace(/ /g, '_'), time: d.time, department: d.department,
+        slaDeadline: null, slaBreached: false, assignedToName: null,
       })));
       setTotalCount(dev.length);
     } finally {
@@ -112,9 +127,18 @@ const ComplaintsPage = () => {
         
         <main className="p-6 md:p-8 space-y-6">
           {/* Header */}
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">All Grievances</h1>
-            <p className="text-sm text-slate-500 mt-1">{totalCount} grievances found</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">All Grievances</h1>
+              <p className="text-sm text-slate-500 mt-1">{totalCount} grievances found</p>
+            </div>
+            <a
+              href={`/api/admin/export/complaints?format=csv${statusFilter ? `&status=${statusFilter}` : ''}`}
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:border-amber-400 hover:text-amber-700 transition-colors shadow-sm"
+            >
+              <Download size={14} />
+              Export CSV
+            </a>
           </div>
 
           {/* Filters */}
@@ -144,15 +168,34 @@ const ComplaintsPage = () => {
             </select>
           </div>
 
+          {/* Bulk Actions */}
+          <BulkActionBar
+            selectedIds={selectedIds}
+            onClear={() => setSelectedIds([])}
+            onComplete={() => fetchData()}
+          />
+
           {/* Complaints List */}
           <div className="space-y-3">
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="bg-white p-5 rounded-xl border border-slate-200 animate-pulse h-28" />
+                <ComplaintRowSkeleton key={i} />
               ))
             ) : complaints.length === 0 ? (
-              <div className="text-center py-16 bg-white rounded-xl border border-slate-200">
-                <p className="text-slate-400">No grievances match your filters</p>
+              <div className="bg-white rounded-xl border border-slate-200">
+                <EmptyState
+                  variant={searchQuery ? 'search' : 'complaints'}
+                  action={
+                    searchQuery ? (
+                      <button
+                        onClick={() => { setSearchInput(''); setSearchQuery(''); setPage(1); }}
+                        className="text-sm text-amber-700 hover:underline font-medium"
+                      >
+                        Clear search
+                      </button>
+                    ) : undefined
+                  }
+                />
               </div>
             ) : (
               complaints.map((item) => {
@@ -163,7 +206,22 @@ const ComplaintsPage = () => {
                 <Link key={item.id} href={`/admin/complaints/${item.id}`}>
                   <div className="bg-white p-5 rounded-xl border border-slate-200 hover:border-amber-300 hover:shadow-sm transition-all cursor-pointer group mb-3">
                     <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0 space-y-2">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(item._id)}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            setSelectedIds(prev =>
+                              prev.includes(item._id)
+                                ? prev.filter(id => id !== item._id)
+                                : [...prev, item._id]
+                            );
+                          }}
+                          className="mt-1 rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+                        />
+                        <div className="flex-1 min-w-0 space-y-2">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded border ${priorityColors[item.priority] || 'text-slate-600 bg-slate-100 border-slate-200'}`}>
                             {item.priority}
@@ -171,6 +229,7 @@ const ComplaintsPage = () => {
                           <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded border ${statusColors[item.status] || 'text-slate-600 bg-slate-100 border-slate-200'}`}>
                             {item.status.replace(/_/g, ' ')}
                           </span>
+                          <SLABadge slaDeadline={item.slaDeadline || null} slaBreached={item.slaBreached || false} />
                           {isAnalyzing && (
                             <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 flex items-center gap-1">
                               <Loader2 size={10} className="animate-spin" /> Analyzing…
@@ -211,7 +270,13 @@ const ComplaintsPage = () => {
                           }`}>
                             {item.department === 'Unassigned' ? '⚠ Unassigned' : item.department}
                           </span>
+                          {item.assignedToName && (
+                            <span className="text-xs text-slate-400">
+                              👤 {item.assignedToName}
+                            </span>
+                          )}
                         </div>
+                      </div>
                       </div>
                       <ChevronRight size={20} className="text-slate-300 group-hover:text-amber-600 transition-colors mt-1 shrink-0" />
                     </div>

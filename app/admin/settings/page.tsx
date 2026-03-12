@@ -4,23 +4,38 @@ import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/admin/dashboard/Sidebar';
 import Topbar from '@/components/admin/dashboard/Topbar';
-import { UserPlus, Shield, Lock, BellRing, Database, ChevronRight, KeyRound, Building2 } from 'lucide-react';
-import { getAdminUsers, createAdminUser, rotatePassword, getMe } from '@/lib/api-client';
+import { UserPlus, Shield, Lock, BellRing, Database, ChevronRight, KeyRound, Building2, MapPin } from 'lucide-react';
+import { getAdminUsers, createAdminUser, rotatePassword, getMe, type CreateAdminPayload } from '@/lib/api-client';
 import { DEPARTMENTS } from '@/lib/constants';
+import AdminUserModal from '@/components/admin/AdminUserModal';
+import {
+  ROLE_META,
+  type AdminRole,
+  getCreatableRoles,
+  canCreateUsers,
+  getRoleLevel,
+  outranks,
+} from '@/lib/rbac/client';
+
+interface LocationScope {
+  country?: string;
+  state?: string;
+  district?: string;
+  block?: string;
+  area?: string;
+}
 
 interface AdminUser {
+  _id: string;
   name: string;
   email: string;
   role: string;
   departments: string[];
   active: boolean;
+  isActive: boolean;
+  phone?: string;
+  locationScope?: LocationScope;
 }
-
-const ALL_ROLE_OPTIONS = [
-  { value: 'head_admin', label: 'Head Administrator', desc: 'Full system access with user management', needsDept: false },
-  { value: 'department_admin', label: 'Department Admin', desc: 'Access limited to assigned departments only', needsDept: true },
-  { value: 'staff', label: 'Staff', desc: 'Departmental staff with limited access', needsDept: true },
-];
 
 const SettingsPageInner = () => {
   const searchParams = useSearchParams();
@@ -29,16 +44,19 @@ const SettingsPageInner = () => {
   const [isAdding, setIsAdding] = useState(false);
   const [admins, setAdmins] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentUserRole, setCurrentUserRole] = useState<string>('staff');
+  const [currentUserRole, setCurrentUserRole] = useState<string>('support_staff');
   const [currentUserDepts, setCurrentUserDepts] = useState<string[]>([]);
+  const [currentUserScope, setCurrentUserScope] = useState<LocationScope>({});
 
   // New admin form
   const [newAdmin, setNewAdmin] = useState({
     name: '',
     email: '',
+    phone: '',
     temporaryPassword: '',
-    role: 'staff' as 'head_admin' | 'department_admin' | 'staff',
+    role: '' as string,
     departments: [] as string[],
+    locationScope: { country: 'India', state: '', district: '', block: '', area: '' } as LocationScope,
   });
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
@@ -51,15 +69,20 @@ const SettingsPageInner = () => {
   const [rotateSuccess, setRotateSuccess] = useState('');
   const [rotating, setRotating] = useState(false);
 
+  // User modal
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+
   const activeDepts = DEPARTMENTS.filter(d => d.active);
 
-  // Role options depend on current user's role
-  const ROLE_OPTIONS = currentUserRole === 'head_admin'
-    ? ALL_ROLE_OPTIONS
-    : ALL_ROLE_OPTIONS.filter(r => r.value === 'staff'); // department_admin can only create staff
+  // Role options depend on current user's role via CREATION_MATRIX
+  const creatableRoles = getCreatableRoles(currentUserRole);
+  const ROLE_OPTIONS = creatableRoles.map(r => ROLE_META[r]);
+
+  // Selected role metadata
+  const selectedRoleMeta = newAdmin.role ? ROLE_META[newAdmin.role as AdminRole] : null;
 
   // Departments available for assignment depend on current user's role
-  const assignableDepts = currentUserRole === 'head_admin'
+  const assignableDepts = getRoleLevel(currentUserRole) <= 1
     ? activeDepts
     : activeDepts.filter(d => currentUserDepts.includes(d.id));
 
@@ -68,8 +91,9 @@ const SettingsPageInner = () => {
       const result = await getMe();
       if (result.success && result.data) {
         const user = result.data.user as Record<string, unknown>;
-        setCurrentUserRole((user.role as string) || 'staff');
+        setCurrentUserRole((user.role as string) || 'support_staff');
         setCurrentUserDepts((user.departments as string[]) || []);
+        setCurrentUserScope((user.locationScope as LocationScope) || {});
       }
     } catch {
       // defaults
@@ -81,11 +105,15 @@ const SettingsPageInner = () => {
       const result = await getAdminUsers();
       if (result.success && result.data) {
         const mapped: AdminUser[] = (result.data as Array<Record<string, unknown>>).map((u) => ({
+          _id: (u._id as string) || '',
           name: (u.name as string) || '',
           email: (u.email as string) || '',
-          role: (u.role as string) || 'staff',
+          role: (u.role as string) || 'support_staff',
           departments: (u.departments as string[]) || [],
           active: !!(u.lastLoginAt),
+          isActive: (u.isActive as boolean) !== false,
+          phone: (u.phone as string) || '',
+          locationScope: (u.locationScope as LocationScope) || {},
         }));
         setAdmins(mapped);
       }
@@ -97,6 +125,13 @@ const SettingsPageInner = () => {
   }, []);
 
   useEffect(() => { fetchCurrentUser(); fetchAdmins(); }, [fetchCurrentUser, fetchAdmins]);
+
+  // Auto-set first creatable role
+  useEffect(() => {
+    if (creatableRoles.length > 0 && !newAdmin.role) {
+      setNewAdmin(p => ({ ...p, role: creatableRoles[0] }));
+    }
+  }, [creatableRoles, newAdmin.role]);
 
   const toggleDepartment = (deptId: string) => {
     setNewAdmin(prev => ({
@@ -114,23 +149,44 @@ const SettingsPageInner = () => {
       setFormError('Name, email, and temporary password are required');
       return;
     }
-    if ((newAdmin.role === 'department_admin' || newAdmin.role === 'staff') && newAdmin.departments.length === 0) {
+    if (!newAdmin.role) {
+      setFormError('Please select a role');
+      return;
+    }
+    const meta = ROLE_META[newAdmin.role as AdminRole];
+    if (meta?.requiresDepartment && newAdmin.departments.length === 0) {
       setFormError('Please select at least one department for this role');
       return;
     }
+    // Validate required location fields
+    if (meta) {
+      const missing = meta.requiredLocationFields.filter(f => !newAdmin.locationScope[f]);
+      if (missing.length > 0) {
+        setFormError(`Location fields required for this role: ${missing.join(', ')}`);
+        return;
+      }
+    }
     setSubmitting(true);
     try {
-      const payload = {
+      const payload: Record<string, unknown> = {
         name: newAdmin.name,
         email: newAdmin.email,
         temporaryPassword: newAdmin.temporaryPassword,
         role: newAdmin.role,
-        ...((newAdmin.role === 'department_admin' || newAdmin.role === 'staff') ? { departments: newAdmin.departments } : {}),
       };
-      const result = await createAdminUser(payload);
+      if (newAdmin.phone) payload.phone = newAdmin.phone;
+      if (meta?.requiresDepartment || (meta?.departmentOptional && newAdmin.departments.length > 0)) {
+        payload.departments = newAdmin.departments;
+      }
+      // Send locationScope (filter out empty values)
+      const ls: Record<string, string> = {};
+      Object.entries(newAdmin.locationScope).forEach(([k, v]) => { if (v) ls[k] = v; });
+      if (Object.keys(ls).length > 0) payload.locationScope = ls;
+
+      const result = await createAdminUser(payload as CreateAdminPayload);
       if (result.success) {
         setFormSuccess('Administrator created successfully. They must change password on first login.');
-        setNewAdmin({ name: '', email: '', temporaryPassword: '', role: 'staff', departments: [] });
+        setNewAdmin({ name: '', email: '', phone: '', temporaryPassword: '', role: creatableRoles[0] || '', departments: [], locationScope: { country: 'India', state: '', district: '', block: '', area: '' } });
         fetchAdmins();
       } else {
         setFormError(result.error || 'Failed to create administrator');
@@ -171,17 +227,11 @@ const SettingsPageInner = () => {
   };
 
   const getRoleLabel = (role: string) => {
-    const opt = ALL_ROLE_OPTIONS.find(r => r.value === role);
-    return opt?.label || role;
+    return ROLE_META[role as AdminRole]?.shortLabel || role;
   };
 
   const getRoleBadge = (role: string) => {
-    switch (role) {
-      case 'head_admin': return 'text-rose-700 bg-rose-50 border-rose-200';
-      case 'department_admin': return 'text-blue-700 bg-blue-50 border-blue-200';
-      case 'staff': return 'text-slate-700 bg-slate-50 border-slate-200';
-      default: return 'text-amber-700 bg-amber-50 border-amber-200';
-    }
+    return ROLE_META[role as AdminRole]?.badgeColor || 'text-amber-700 bg-amber-50 border-amber-200';
   };
 
   return (
@@ -248,7 +298,7 @@ const SettingsPageInner = () => {
                   </div>
                   <button 
                     onClick={() => setIsAdding(!isAdding)}
-                    className="flex items-center gap-2 px-4 py-2 bg-amber-700 text-white rounded-lg font-medium text-sm hover:bg-amber-800 transition-all"
+                    className={`flex items-center gap-2 px-4 py-2 bg-amber-700 text-white rounded-lg font-medium text-sm hover:bg-amber-800 transition-all ${!canCreateUsers(currentUserRole) ? 'hidden' : ''}`}
                   >
                     <UserPlus size={16} />
                     Add Administrator
@@ -256,7 +306,7 @@ const SettingsPageInner = () => {
                 </div>
 
                 {/* Add Admin Form (Collapsible) */}
-                {isAdding && (
+                {isAdding && canCreateUsers(currentUserRole) && (
                   <div className="mb-6 p-5 bg-slate-50 rounded-xl border border-slate-200">
                     <h4 className="text-xs font-semibold text-slate-700 mb-4">Create New Administrator</h4>
                     {formError && <div className="mb-4 px-4 py-3 bg-rose-50 border border-rose-200 rounded-lg text-sm text-rose-700">{formError}</div>}
@@ -270,35 +320,49 @@ const SettingsPageInner = () => {
                         <label className="text-xs font-medium text-slate-600">Official Email</label>
                         <input type="email" placeholder="admin@appsc.gov.in" value={newAdmin.email} onChange={e => setNewAdmin(p => ({ ...p, email: e.target.value }))} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 transition-all" />
                       </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-slate-600">Phone (optional)</label>
+                        <input type="tel" placeholder="+91 XXXXX XXXXX" value={newAdmin.phone} onChange={e => setNewAdmin(p => ({ ...p, phone: e.target.value }))} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 transition-all" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-slate-600">Temporary Password</label>
+                        <input type="password" placeholder="Min 12 characters" value={newAdmin.temporaryPassword} onChange={e => setNewAdmin(p => ({ ...p, temporaryPassword: e.target.value }))} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 transition-all" />
+                      </div>
 
-                      {/* Role Selection */}
+                      {/* Role Selection — Dynamic from CREATION_MATRIX */}
                       <div className="space-y-1.5 md:col-span-2">
                         <label className="text-xs font-medium text-slate-600">Administrator Role</label>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                          {ROLE_OPTIONS.map(opt => (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-56 overflow-y-auto">
+                          {ROLE_OPTIONS.map(meta => (
                             <button
-                              key={opt.value}
+                              key={meta.slug}
                               type="button"
-                              onClick={() => setNewAdmin(p => ({ ...p, role: opt.value as typeof p.role, departments: opt.needsDept ? p.departments : [] }))}
+                              onClick={() => setNewAdmin(p => ({
+                                ...p,
+                                role: meta.slug,
+                                departments: meta.requiresDepartment ? p.departments : [],
+                              }))}
                               className={`p-3 rounded-lg border text-left transition-all ${
-                                newAdmin.role === opt.value
+                                newAdmin.role === meta.slug
                                   ? 'border-amber-500 bg-amber-50 ring-1 ring-amber-500/20'
                                   : 'border-slate-200 bg-white hover:border-slate-300'
                               }`}
                             >
-                              <p className={`text-xs font-semibold ${newAdmin.role === opt.value ? 'text-amber-800' : 'text-slate-700'}`}>{opt.label}</p>
-                              <p className="text-[10px] text-slate-400 mt-0.5">{opt.desc}</p>
+                              <p className={`text-xs font-semibold ${newAdmin.role === meta.slug ? 'text-amber-800' : 'text-slate-700'}`}>{meta.shortLabel}</p>
+                              <p className="text-[10px] text-slate-400 mt-0.5">Level {meta.level} · {meta.requiresDepartment ? 'Dept required' : meta.departmentOptional ? 'Dept optional' : 'Global'}</p>
                             </button>
                           ))}
                         </div>
                       </div>
 
-                      {/* Department Checklist — shown for Department Admin & Staff */}
-                      {(newAdmin.role === 'department_admin' || newAdmin.role === 'staff') && (
+                      {/* Department Checklist — shown when role requires or optionally allows departments */}
+                      {selectedRoleMeta && (selectedRoleMeta.requiresDepartment || selectedRoleMeta.departmentOptional) && (
                         <div className="space-y-1.5 md:col-span-2">
                           <label className="text-xs font-medium text-slate-600 flex items-center gap-1.5">
                             <Building2 size={12} className="text-amber-700" />
-                            Assign Departments <span className="text-slate-400 font-normal">({newAdmin.departments.length} selected)</span>
+                            Assign Departments
+                            {selectedRoleMeta.requiresDepartment && <span className="text-rose-500">*</span>}
+                            <span className="text-slate-400 font-normal">({newAdmin.departments.length} selected)</span>
                           </label>
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-1.5 max-h-52 overflow-y-auto p-3 bg-white border border-slate-200 rounded-lg">
                             {assignableDepts.map(dept => (
@@ -323,10 +387,38 @@ const SettingsPageInner = () => {
                         </div>
                       )}
 
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-slate-600">Temporary Password</label>
-                        <input type="password" placeholder="Min 12 characters" value={newAdmin.temporaryPassword} onChange={e => setNewAdmin(p => ({ ...p, temporaryPassword: e.target.value }))} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 transition-all" />
-                      </div>
+                      {/* Location Scope — dynamic fields based on selected role */}
+                      {selectedRoleMeta && selectedRoleMeta.requiredLocationFields.length > 0 && (
+                        <div className="space-y-1.5 md:col-span-2">
+                          <label className="text-xs font-medium text-slate-600 flex items-center gap-1.5">
+                            <MapPin size={12} className="text-amber-700" />
+                            Location Scope
+                          </label>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 bg-white border border-slate-200 rounded-lg">
+                            {(['country', 'state', 'district', 'block', 'area'] as const).map(field => {
+                              const isRequired = selectedRoleMeta.requiredLocationFields.includes(field);
+                              if (!isRequired) return null;
+                              return (
+                                <div key={field} className="space-y-1">
+                                  <label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">
+                                    {field} <span className="text-rose-500">*</span>
+                                  </label>
+                                  <input
+                                    type="text"
+                                    placeholder={field === 'country' ? 'India' : `Enter ${field}...`}
+                                    value={newAdmin.locationScope[field] || ''}
+                                    onChange={e => setNewAdmin(p => ({
+                                      ...p,
+                                      locationScope: { ...p.locationScope, [field]: e.target.value },
+                                    }))}
+                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 transition-all"
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <div className="mt-4">
                       <button onClick={handleCreateAdmin} disabled={submitting} className="px-6 py-2.5 bg-amber-700 text-white rounded-lg font-medium text-sm hover:bg-amber-800 transition-all disabled:opacity-50">
@@ -354,11 +446,17 @@ const SettingsPageInner = () => {
                          </div>
                          <div>
                            <p className="text-sm font-semibold text-slate-800 leading-none mb-1">{admin.name}</p>
-                           <div className="flex items-center gap-2">
+                           <div className="flex items-center gap-2 flex-wrap">
                              <p className="text-xs text-slate-500">{admin.email}</p>
-                             {(admin.role === 'department_admin' || admin.role === 'staff') && admin.departments.length > 0 && (
+                             {admin.departments.length > 0 && (
                                <span className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
                                  {admin.departments.length} dept{admin.departments.length > 1 ? 's' : ''}
+                               </span>
+                             )}
+                             {admin.locationScope && (admin.locationScope.state || admin.locationScope.district) && (
+                               <span className="text-[10px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 flex items-center gap-0.5">
+                                 <MapPin size={8} />
+                                 {[admin.locationScope.district, admin.locationScope.state].filter(Boolean).join(', ')}
                                </span>
                              )}
                            </div>
@@ -369,12 +467,18 @@ const SettingsPageInner = () => {
                            {getRoleLabel(admin.role)}
                          </span>
                          <div className="flex items-center gap-1.5">
-                            <div className={`w-1.5 h-1.5 rounded-full ${admin.active ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
-                            <span className="text-xs text-slate-500">{admin.active ? 'Active' : 'Inactive'}</span>
+                            <div className={`w-1.5 h-1.5 rounded-full ${admin.isActive ? 'bg-emerald-500' : 'bg-rose-400'}`}></div>
+                            <span className="text-xs text-slate-500">{admin.isActive ? 'Active' : 'Deactivated'}</span>
                          </div>
-                         <button className="p-1.5 text-slate-400 hover:text-amber-700 transition-colors">
-                           <ChevronRight size={16} />
-                         </button>
+                         {outranks(currentUserRole, admin.role) && (
+                           <button
+                             onClick={() => setSelectedUser(admin)}
+                             className="p-1.5 text-slate-400 hover:text-amber-700 transition-colors"
+                             title="Edit user"
+                           >
+                             <ChevronRight size={16} />
+                           </button>
+                         )}
                       </div>
                     </div>
                   ))
@@ -420,6 +524,17 @@ const SettingsPageInner = () => {
 
           </div>
         </main>
+
+        {/* Admin User Edit Modal */}
+        {selectedUser && (
+          <AdminUserModal
+            user={selectedUser}
+            onClose={() => setSelectedUser(null)}
+            onUpdated={() => { fetchAdmins(); setSelectedUser(null); }}
+            allDepartments={activeDepts.map(d => ({ id: d.id, label: d.label }))}
+            editorRole={currentUserRole}
+          />
+        )}
       </div>
     </div>
   );

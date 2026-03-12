@@ -1,5 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
+import { getMutationRateLimiter } from '@/lib/redis';
+
+/**
+ * Format Zod validation issues into a consistent { field, message } array.
+ * Extracted to avoid inline type annotation issues across different TS versions.
+ */
+export function formatZodErrors(
+  issues: Array<{ path: readonly PropertyKey[]; message: string }>
+): Array<{ field: string; message: string }> {
+  return issues.map((e) => ({
+    field: e.path.map(String).join('.'),
+    message: e.message,
+  }));
+}
 
 /**
  * Standard API response envelope.
@@ -15,6 +29,7 @@ export interface ApiResponse<T = unknown> {
     limit?: number;
     total?: number;
     totalPages?: number;
+    nextCursor?: string | null;
   };
   correlationId: string;
 }
@@ -70,6 +85,9 @@ export function getClientIp(req: NextRequest): string {
 
 /**
  * Generate a human-readable complaint ID.
+ * @deprecated Use `generateTrackingId()` from `@/lib/models/Counter` instead.
+ * This function generates non-unique IDs (random suffix). The new Counter-based
+ * approach uses atomic MongoDB sequences for nationally-unique tracking IDs.
  */
 export function generateComplaintId(): string {
   const date = new Date();
@@ -112,7 +130,8 @@ export function getCorsHeaders(): Record<string, string> {
 
 /**
  * Simple in-memory rate limiter for API routes.
- * In production, use Redis or a dedicated rate-limiting service.
+ * @deprecated Use Redis-based rate limiters from `@/lib/redis` instead.
+ * Kept for backward compatibility with routes not yet migrated to Redis.
  */
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 
@@ -146,3 +165,31 @@ setInterval(() => {
     }
   }
 }, 60_000);
+
+/**
+ * Apply Redis-backed mutation rate limit (20 req/min per key).
+ * Returns an error response if rate limit is exceeded, or null if allowed.
+ * Fails open if Redis is unavailable.
+ *
+ * Usage:
+ *   const rateLimitError = await applyMutationRateLimit(req, 'assign');
+ *   if (rateLimitError) return rateLimitError;
+ */
+export async function applyMutationRateLimit(
+  req: NextRequest,
+  action: string
+): Promise<NextResponse<ApiResponse> | null> {
+  try {
+    const ip = getClientIp(req);
+    const limiter = getMutationRateLimiter();
+    const { success } = await limiter.limit(`${action}:${ip}`);
+    if (!success) {
+      return errorResponse('Rate limit exceeded. Please slow down.', 429);
+    }
+    return null;
+  } catch {
+    // Fail open — if Redis is down, allow the request
+    console.warn(`[RATE LIMIT] Redis unavailable for ${action}, allowing request`);
+    return null;
+  }
+}

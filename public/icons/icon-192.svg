@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="29" fill="#b45309"/>
+  <g transform="translate(96, 73)">
+    <path d="M0 -48 L40.8 -26.400000000000002 L40.8 12 C40.8 31.200000000000003 0 48 0 48 C0 48 -40.8 31.200000000000003 -40.8 12 L-40.8 -26.400000000000002 Z" fill="white" opacity="0.95"/>
+  </g>
+  <text x="50%" y="72%" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="white" font-weight="700" letter-spacing="1">SAMADHAN</text>
+</svg>

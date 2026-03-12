@@ -1,0 +1,439 @@
+openapi: 3.0.3
+info:
+  title: Samadhan AI — Grievance Redressal API
+  version: 0.1.0
+  description: |
+    REST API for the Arunachal Pradesh State Grievance Redressal Platform.
+    AI-powered complaint routing, multi-department RBAC, and citizen self-service.
+  contact:
+    name: Samadhan AI Team
+
+servers:
+  - url: http://localhost:3000/api
+    description: Local development
+  - url: https://your-app.vercel.app/api
+    description: Production (Vercel)
+
+tags:
+  - name: Auth
+    description: Admin authentication (JWT)
+  - name: Citizen Auth
+    description: Citizen authentication (OTP-based)
+  - name: Complaints
+    description: Core complaint CRUD and actions
+  - name: Citizen
+    description: Citizen self-service endpoints
+  - name: Admin
+    description: Admin dashboard, stats, and management
+  - name: Departments
+    description: Department configuration
+  - name: Chat
+    description: AI-powered chat per complaint
+  - name: Calls
+    description: AI voice calling
+  - name: Public
+    description: Unauthenticated endpoints
+
+paths:
+  # ── Auth ────────────────────────────────────────────────────────────
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Admin login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+      responses:
+        '200': { description: Login successful — sets access_token + refresh_token cookies }
+        '401': { description: Invalid credentials }
+        '429': { description: Rate limited }
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Admin logout
+      responses:
+        '200': { description: Cookies cleared }
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      responses:
+        '200': { description: New access_token cookie set }
+        '401': { description: Invalid or expired refresh token }
+
+  /auth/rotate-password:
+    post:
+      tags: [Auth]
+      summary: Change admin password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword: { type: string }
+                newPassword: { type: string, minLength: 8 }
+      responses:
+        '200': { description: Password changed }
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current admin profile
+      responses:
+        '200': { description: Admin user object }
+
+  # ── Citizen Auth ────────────────────────────────────────────────────
+  /citizen/auth/register:
+    post:
+      tags: [Citizen Auth]
+      summary: Register new citizen
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, phone, email]
+              properties:
+                name: { type: string }
+                phone: { type: string }
+                email: { type: string, format: email }
+                state: { type: string }
+                district: { type: string }
+      responses:
+        '201': { description: OTP sent to phone/email }
+
+  /citizen/auth/send-otp:
+    post:
+      tags: [Citizen Auth]
+      summary: Send OTP for login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identifier]
+              properties:
+                identifier: { type: string, description: Phone or email }
+      responses:
+        '200': { description: OTP sent }
+
+  /citizen/auth/verify-otp:
+    post:
+      tags: [Citizen Auth]
+      summary: Verify OTP and get tokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identifier, code]
+              properties:
+                identifier: { type: string }
+                code: { type: string, pattern: '^\d{6}$' }
+      responses:
+        '200': { description: citizen_access_token + citizen_refresh_token cookies set }
+
+  # ── Complaints ──────────────────────────────────────────────────────
+  /complaints:
+    get:
+      tags: [Complaints]
+      summary: List complaints (admin, paginated)
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, default: 20, maximum: 100 } }
+        - { name: status, in: query, schema: { type: string, enum: [pending, triage, in_progress, resolved, closed, escalated] } }
+        - { name: priority, in: query, schema: { type: string, enum: [low, medium, high, critical] } }
+        - { name: search, in: query, schema: { type: string }, description: Full-text search }
+        - { name: department, in: query, schema: { type: string } }
+        - { name: assignedTo, in: query, schema: { type: string } }
+        - { name: slaBreached, in: query, schema: { type: string, enum: ['true', 'false'] } }
+        - { name: dateFrom, in: query, schema: { type: string, format: date } }
+        - { name: dateTo, in: query, schema: { type: string, format: date } }
+        - { name: sort, in: query, schema: { type: string, default: '-createdAt' } }
+        - { name: cursor, in: query, schema: { type: string }, description: MongoDB _id for cursor-based pagination }
+      responses:
+        '200':
+          description: Paginated complaint list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { type: array, items: { $ref: '#/components/schemas/Complaint' } }
+                  meta:
+                    type: object
+                    properties:
+                      page: { type: integer }
+                      limit: { type: integer }
+                      total: { type: integer }
+                      totalPages: { type: integer }
+                      nextCursor: { type: string, nullable: true }
+
+    post:
+      tags: [Complaints]
+      summary: Submit a new complaint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, description, submitterName, submitterPhone]
+              properties:
+                title: { type: string, minLength: 5, maxLength: 200 }
+                description: { type: string, minLength: 20, maxLength: 5000 }
+                submitterName: { type: string }
+                submitterPhone: { type: string }
+                submitterEmail: { type: string, format: email }
+                location: { type: string }
+                state: { type: string }
+                district: { type: string }
+                coordinates: { type: object, properties: { lat: { type: number }, lng: { type: number } } }
+                callConsent: { type: boolean, default: false }
+                attachments: { type: array, items: { type: object } }
+      responses:
+        '201': { description: Complaint created with tracking ID (GRV-XXXX) }
+        '429': { description: Rate limited }
+
+  /complaints/{id}:
+    get:
+      tags: [Complaints]
+      summary: Get complaint details
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Full complaint object (PII masked for non-head-admin) }
+
+    patch:
+      tags: [Complaints]
+      summary: Update complaint (status, priority, department)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string, enum: [pending, triage, in_progress, resolved, closed, escalated] }
+                priority: { type: string, enum: [low, medium, high, critical] }
+                department: { type: string }
+                reason: { type: string }
+                comment: { type: string }
+      responses:
+        '200': { description: Updated complaint }
+
+  /complaints/{id}/assign:
+    post:
+      tags: [Complaints]
+      summary: Assign complaint to admin
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Assigned }
+
+  /complaints/{id}/escalate:
+    post:
+      tags: [Complaints]
+      summary: Escalate complaint
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Escalated }
+
+  /complaints/{id}/notes:
+    get:
+      tags: [Complaints]
+      summary: List internal notes
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Array of notes }
+    post:
+      tags: [Complaints]
+      summary: Add internal note
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '201': { description: Note created }
+
+  /complaints/{id}/reveal-contact:
+    post:
+      tags: [Complaints]
+      summary: Reveal citizen PII (logged + reason required)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Contact details }
+
+  # ── Admin ───────────────────────────────────────────────────────────
+  /admin/stats:
+    get:
+      tags: [Admin]
+      summary: Dashboard stats (cached 5 min)
+      responses:
+        '200': { description: Overview, priorities, departments, analysis stats }
+
+  /admin/analytics:
+    get:
+      tags: [Admin]
+      summary: Analytics with date range (cached 5 min)
+      parameters:
+        - { name: period, in: query, schema: { type: string, enum: [7d, 30d, 90d, custom] } }
+        - { name: dateFrom, in: query, schema: { type: string, format: date } }
+        - { name: dateTo, in: query, schema: { type: string, format: date } }
+        - { name: department, in: query, schema: { type: string } }
+      responses:
+        '200': { description: Trend, SLA metrics, resolution times, department breakdown }
+
+  /admin/users:
+    get:
+      tags: [Admin]
+      summary: List admin users
+      responses:
+        '200': { description: User list }
+    post:
+      tags: [Admin]
+      summary: Create admin user (head_admin only)
+      responses:
+        '201': { description: User created }
+
+  /admin/departments:
+    get:
+      tags: [Departments]
+      summary: List all departments
+      responses:
+        '200': { description: Department list }
+
+  # ── Citizen ─────────────────────────────────────────────────────────
+  /citizen/complaints:
+    get:
+      tags: [Citizen]
+      summary: List citizen's own complaints
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: status, in: query, schema: { type: string } }
+        - { name: search, in: query, schema: { type: string } }
+      responses:
+        '200': { description: Paginated citizen complaints }
+    post:
+      tags: [Citizen]
+      summary: Submit complaint as authenticated citizen
+      responses:
+        '201': { description: Complaint created }
+
+  /citizen/complaints/track:
+    get:
+      tags: [Citizen]
+      summary: Track complaint by ID (no auth required)
+      parameters:
+        - { name: id, in: query, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Complaint status }
+
+  /citizen/notifications:
+    get:
+      tags: [Citizen]
+      summary: List citizen notifications
+      responses:
+        '200': { description: Notification list }
+
+  # ── Chat ────────────────────────────────────────────────────────────
+  /chat/{complaintId}/messages:
+    get:
+      tags: [Chat]
+      summary: Get chat messages for complaint
+      parameters:
+        - { name: complaintId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Message list }
+    post:
+      tags: [Chat]
+      summary: Send message (AI responds automatically)
+      parameters:
+        - { name: complaintId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: AI response message }
+
+  # ── Public ──────────────────────────────────────────────────────────
+  /health:
+    get:
+      tags: [Public]
+      summary: Health check
+      responses:
+        '200':
+          description: Service healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [ok, degraded] }
+                  timestamp: { type: string, format: date-time }
+                  uptime: { type: number }
+                  database: { type: string }
+                  redis: { type: string }
+
+  /stats:
+    get:
+      tags: [Public]
+      summary: Public transparency statistics
+      responses:
+        '200': { description: Aggregate complaint statistics }
+
+components:
+  schemas:
+    Complaint:
+      type: object
+      properties:
+        _id: { type: string }
+        complaintId: { type: string, description: 'Tracking ID (GRV-AP-XXXX-NNNN)' }
+        title: { type: string }
+        description: { type: string }
+        category: { type: string }
+        priority: { type: string, enum: [low, medium, high, critical] }
+        status: { type: string, enum: [pending, triage, in_progress, resolved, closed, escalated] }
+        department: { type: string }
+        location: { type: string }
+        state: { type: string }
+        district: { type: string }
+        aiSummary: { type: string, nullable: true }
+        aiConfidence: { type: number, nullable: true }
+        slaDeadline: { type: string, format: date-time, nullable: true }
+        slaBreached: { type: boolean }
+        analysisStatus: { type: string, enum: [queued, processing, completed, deferred] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: access_token
+      description: JWT access token (admin)
+    citizenCookieAuth:
+      type: apiKey
+      in: cookie
+      name: citizen_access_token
+      description: JWT access token (citizen)
+    cronSecret:
+      type: http
+      scheme: bearer
+      description: Vercel CRON_SECRET for cron endpoints

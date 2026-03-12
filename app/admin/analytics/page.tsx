@@ -4,7 +4,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/admin/dashboard/Sidebar';
 import Topbar from '@/components/admin/dashboard/Topbar';
-import { getDashboardStats, getMe } from '@/lib/api-client';
+import { getDashboardStats, getMe, getAnalytics } from '@/lib/api-client';
+import TrendChart from '@/components/admin/dashboard/TrendChart';
 import { 
   TrendingUp, 
   BarChart3, 
@@ -16,6 +17,7 @@ import {
   FileText,
   Loader2,
   ShieldAlert,
+  Download,
 } from 'lucide-react';
 
 interface OverviewData {
@@ -66,6 +68,10 @@ const AnalyticsPage = () => {
   const [loading, setLoading] = useState(true);
   const [animated, setAnimated] = useState(false);
   const [accessDenied, setAccessDenied] = useState(false);
+  const [trendData, setTrendData] = useState<Array<{ date: string; count: number }>>([]);
+  const [slaStats, setSlaStats] = useState<{ totalWithSla: number; breached: number; onTrack: number; complianceRate: string } | null>(null);
+  const [resolutionTime, setResolutionTime] = useState<{ avgHours: number; resolvedCount: number } | null>(null);
+  const [period, setPeriod] = useState<'7d' | '30d' | '90d'>('30d');
 
   const fetchAnalytics = useCallback(async () => {
     try {
@@ -86,6 +92,18 @@ const AnalyticsPage = () => {
         setDepts((result.data.departments || []) as unknown as DeptStat[]);
         setAnalysis(result.data.analysis as unknown as AnalysisData);
         setPriorities(result.data.priorities as unknown as Priorities);
+      }
+
+      // Fetch enhanced analytics (trend + SLA)
+      try {
+        const analyticsResult = await getAnalytics({ period });
+        if (analyticsResult.success && analyticsResult.data) {
+          setTrendData(analyticsResult.data.trend || []);
+          setSlaStats(analyticsResult.data.sla || null);
+          setResolutionTime(analyticsResult.data.resolutionTime || null);
+        }
+      } catch {
+        // Enhanced analytics unavailable — non-critical
       }
     } catch {
       // Stats unavailable
@@ -142,9 +160,18 @@ const AnalyticsPage = () => {
         
         <main className="p-6 md:p-8 space-y-8">
           {/* Header */}
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">Analytics</h1>
-            <p className="text-sm text-slate-500 mt-1">Real-time grievance analytics and performance metrics</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">Analytics</h1>
+              <p className="text-sm text-slate-500 mt-1">Real-time grievance analytics and performance metrics</p>
+            </div>
+            <a
+              href="/api/admin/export/complaints?format=csv"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:border-amber-400 hover:text-amber-700 transition-colors shadow-sm"
+            >
+              <Download size={14} />
+              Export All CSV
+            </a>
           </div>
 
           {loading ? (
@@ -357,6 +384,84 @@ const AnalyticsPage = () => {
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Trend + SLA Row */}
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                {/* Trend Chart */}
+                <div className="xl:col-span-2 bg-white border border-slate-200 p-6 rounded-xl">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                      <TrendingUp size={16} className="text-blue-600" />
+                      Daily Complaint Trend
+                    </h3>
+                    <div className="flex gap-1">
+                      {(['7d', '30d', '90d'] as const).map((p) => (
+                        <button
+                          key={p}
+                          onClick={() => setPeriod(p)}
+                          className={`px-3 py-1 text-xs rounded-lg transition-colors ${
+                            period === p
+                              ? 'bg-amber-700 text-white'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <TrendChart data={trendData} height={220} color="#b45309" />
+                </div>
+
+                {/* SLA & Resolution Metrics */}
+                <div className="bg-white border border-slate-200 p-6 rounded-xl space-y-6">
+                  <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                    <Clock size={16} className="text-rose-600" />
+                    SLA Performance
+                  </h3>
+
+                  {slaStats ? (
+                    <div className="space-y-4">
+                      <div className="text-center">
+                        <p className="text-3xl font-bold text-slate-900">{slaStats.complianceRate}</p>
+                        <p className="text-xs text-slate-400 mt-1">SLA Compliance Rate</p>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="bg-slate-50 rounded-lg p-3">
+                          <p className="text-lg font-bold text-slate-900">{slaStats.totalWithSla}</p>
+                          <p className="text-[10px] text-slate-400">With SLA</p>
+                        </div>
+                        <div className="bg-green-50 rounded-lg p-3">
+                          <p className="text-lg font-bold text-green-700">{slaStats.onTrack}</p>
+                          <p className="text-[10px] text-green-600">On Track</p>
+                        </div>
+                        <div className="bg-rose-50 rounded-lg p-3">
+                          <p className="text-lg font-bold text-rose-700">{slaStats.breached}</p>
+                          <p className="text-[10px] text-rose-600">Breached</p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 text-sm text-slate-400">No SLA data</div>
+                  )}
+
+                  {resolutionTime && resolutionTime.resolvedCount > 0 && (
+                    <div className="pt-4 border-t border-slate-100">
+                      <h4 className="text-xs font-semibold text-slate-500 mb-3">Resolution Time</h4>
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-slate-900">
+                          {resolutionTime.avgHours < 24
+                            ? `${resolutionTime.avgHours}h`
+                            : `${Math.round(resolutionTime.avgHours / 24)}d`}
+                        </p>
+                        <p className="text-xs text-slate-400 mt-1">
+                          Avg. resolution · {resolutionTime.resolvedCount} resolved
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </>
           )}

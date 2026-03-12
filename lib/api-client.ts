@@ -106,6 +106,15 @@ export async function rotatePassword(currentPassword: string, newPassword: strin
 // ---------------------------------------------------------------------------
 // Complaints API
 // ---------------------------------------------------------------------------
+export interface AttachmentPayload {
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  url: string;
+  publicId: string;
+  thumbnailUrl: string;
+}
+
 export interface ComplaintPayload {
   title: string;
   description: string;
@@ -113,8 +122,11 @@ export interface ComplaintPayload {
   submitterPhone: string;
   submitterEmail: string;
   location?: string;
+  state?: string;
+  district?: string;
   coordinates?: { lat: number; lng: number };
   callConsent?: boolean;
+  attachments?: AttachmentPayload[];
 }
 
 export async function submitComplaint(data: ComplaintPayload) {
@@ -164,14 +176,35 @@ export interface CreateAdminPayload {
   email: string;
   name: string;
   temporaryPassword: string;
-  role?: 'head_admin' | 'department_admin' | 'staff';
+  role?: string;
   departments?: string[];
+  phone?: string;
+  locationScope?: Record<string, string>;
+  [key: string]: unknown;
 }
 
 export async function createAdminUser(data: CreateAdminPayload) {
   return request<Record<string, unknown>>('/api/admin/users', {
     method: 'POST',
     body: JSON.stringify(data),
+  });
+}
+
+export async function getAdminUserById(id: string) {
+  return request<Record<string, unknown>>(`/api/admin/users/${id}`);
+}
+
+export async function updateAdminUser(id: string, data: Record<string, unknown>) {
+  return request<Record<string, unknown>>(`/api/admin/users/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function resetAdminPassword(id: string, temporaryPassword: string) {
+  return request<{ message: string }>(`/api/admin/users/${id}/reset-password`, {
+    method: 'POST',
+    body: JSON.stringify({ temporaryPassword }),
   });
 }
 
@@ -293,4 +326,178 @@ export async function initiateCall(complaintId: string) {
 
 export async function getCallLogs(complaintId: string) {
   return request<Record<string, unknown>[]>(`/api/calls/${complaintId}`);
+}
+
+// ---------------------------------------------------------------------------
+// Notifications API (Phase 2)
+// ---------------------------------------------------------------------------
+export interface NotificationQuery {
+  page?: number;
+  limit?: number;
+  isRead?: string;
+  type?: string;
+}
+
+export async function getNotifications(query: NotificationQuery = {}) {
+  const params = new URLSearchParams();
+  Object.entries(query).forEach(([key, value]) => {
+    if (value !== undefined) params.set(key, String(value));
+  });
+  const qs = params.toString();
+  return request<Record<string, unknown>[]>(`/api/admin/notifications${qs ? `?${qs}` : ''}`);
+}
+
+export async function getUnreadNotificationCount() {
+  return request<{ unreadCount: number }>('/api/admin/notifications/count');
+}
+
+export async function markNotificationRead(notificationId: string) {
+  return request<Record<string, unknown>>('/api/admin/notifications', {
+    method: 'PATCH',
+    body: JSON.stringify({ notificationId }),
+  });
+}
+
+export async function markAllNotificationsRead() {
+  return request<{ modifiedCount: number }>('/api/admin/notifications', {
+    method: 'PATCH',
+    body: JSON.stringify({ markAllRead: true }),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Complaint Workflow API (Phase 2)
+// ---------------------------------------------------------------------------
+
+// Internal Notes
+export async function getComplaintNotes(complaintId: string) {
+  return request<Record<string, unknown>[]>(`/api/complaints/${complaintId}/notes`);
+}
+
+export async function addComplaintNote(complaintId: string, content: string) {
+  return request<Record<string, unknown>>(`/api/complaints/${complaintId}/notes`, {
+    method: 'POST',
+    body: JSON.stringify({ content }),
+  });
+}
+
+// Assign Complaint
+export async function assignComplaint(complaintId: string, data: { assignToEmail?: string; assignToSelf?: boolean }) {
+  return request<Record<string, unknown>>(`/api/complaints/${complaintId}/assign`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+// Escalate Complaint
+export async function escalateComplaint(complaintId: string, toDepartment: string, reason: string) {
+  return request<Record<string, unknown>>(`/api/complaints/${complaintId}/escalate`, {
+    method: 'POST',
+    body: JSON.stringify({ toDepartment, reason }),
+  });
+}
+
+// Bulk Update
+export interface BulkUpdatePayload {
+  complaintIds: string[];
+  updates: {
+    status?: string;
+    priority?: string;
+    department?: string;
+    assignedTo?: string;
+  };
+  reason: string;
+}
+
+export async function bulkUpdateComplaints(data: BulkUpdatePayload) {
+  return request<{ message: string; total: number; found: number; modified: number }>('/api/complaints/bulk', {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+// Enhanced Complaint Query
+export interface EnhancedComplaintQuery extends ComplaintQuery {
+  department?: string;
+  assignedTo?: string;
+  slaBreached?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export async function getComplaintsEnhanced(query: EnhancedComplaintQuery = {}) {
+  const params = new URLSearchParams();
+  Object.entries(query).forEach(([key, value]) => {
+    if (value !== undefined) params.set(key, String(value));
+  });
+  const qs = params.toString();
+  return request<Record<string, unknown>[]>(`/api/complaints${qs ? `?${qs}` : ''}`);
+}
+
+// ---------------------------------------------------------------------------
+// Analytics API (Phase 2)
+// ---------------------------------------------------------------------------
+export interface AnalyticsQuery {
+  period?: '7d' | '30d' | '90d' | 'custom';
+  department?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export async function getAnalytics(query: AnalyticsQuery = {}) {
+  const params = new URLSearchParams();
+  Object.entries(query).forEach(([key, value]) => {
+    if (value !== undefined) params.set(key, String(value));
+  });
+  const qs = params.toString();
+  return request<{
+    period: { from: string; to: string; label: string };
+    overview: { total: number; statusDistribution: Record<string, number>; priorityDistribution: Record<string, number> };
+    trend: Array<{ date: string; count: number }>;
+    departments: Array<Record<string, unknown>>;
+    sla: { totalWithSla: number; breached: number; onTrack: number; complianceRate: string };
+    resolutionTime: { avgHours: number; minHours: number; maxHours: number; resolvedCount: number };
+  }>(`/api/admin/analytics${qs ? `?${qs}` : ''}`);
+}
+
+// ---------------------------------------------------------------------------
+// Activity Feed API (Phase 2)
+// ---------------------------------------------------------------------------
+export interface ActivityQuery {
+  page?: number;
+  limit?: number;
+  action?: string;
+  actor?: string;
+}
+
+export async function getActivityFeed(query: ActivityQuery = {}) {
+  const params = new URLSearchParams();
+  Object.entries(query).forEach(([key, value]) => {
+    if (value !== undefined) params.set(key, String(value));
+  });
+  const qs = params.toString();
+  return request<Record<string, unknown>[]>(`/api/admin/activity${qs ? `?${qs}` : ''}`);
+}
+
+// ---------------------------------------------------------------------------
+// Department Admin Management API (Phase 2)
+// ---------------------------------------------------------------------------
+export async function getDepartmentAdmins(departmentId: string) {
+  return request<{ department: { id: string; label: string }; admins: Record<string, unknown>[]; total: number }>(
+    `/api/admin/departments/${departmentId}/admins`
+  );
+}
+
+export async function assignDepartmentAdmin(departmentId: string, adminEmail: string) {
+  return request<Record<string, unknown>>(`/api/admin/departments/${departmentId}/admins`, {
+    method: 'POST',
+    body: JSON.stringify({ adminEmail }),
+  });
+}
+
+export async function removeDepartmentAdmin(departmentId: string, adminEmail: string) {
+  return request<Record<string, unknown>>(
+    `/api/admin/departments/${departmentId}/admins?adminEmail=${encodeURIComponent(adminEmail)}`,
+    { method: 'DELETE' }
+  );
 }

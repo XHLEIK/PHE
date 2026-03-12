@@ -9,7 +9,7 @@ import crypto from 'crypto';
 export interface IAuditLog extends Document {
   action: string; // e.g. "complaint.created", "admin.login", "admin.created", "complaint.status_changed"
   actor: string; // email of user who performed the action
-  targetType: 'complaint' | 'user' | 'system';
+  targetType: 'complaint' | 'user' | 'system' | 'department';
   targetId: string; // e.g. complaint _id or user _id
   changes: Record<string, { from: unknown; to: unknown }>;
   metadata: Record<string, unknown>;
@@ -34,7 +34,7 @@ const AuditLogSchema = new Schema<IAuditLog>(
     },
     targetType: {
       type: String,
-      enum: ['complaint', 'user', 'system'],
+      enum: ['complaint', 'user', 'system', 'department'],
       required: true,
     },
     targetId: {
@@ -75,6 +75,11 @@ const AuditLogSchema = new Schema<IAuditLog>(
   }
 );
 
+// Performance indexes
+AuditLogSchema.index({ targetType: 1, targetId: 1, createdAt: -1 }); // timeline queries
+AuditLogSchema.index({ actor: 1, createdAt: -1 }); // actor history
+AuditLogSchema.index({ createdAt: 1 }, { expireAfterSeconds: 63072000 }); // 2-year TTL
+
 // Disallow update/delete operations at the schema level
 AuditLogSchema.pre('findOneAndUpdate', function () {
   throw new Error('Audit logs are append-only and cannot be updated');
@@ -94,7 +99,7 @@ export default AuditLog;
 export async function createAuditEntry(params: {
   action: string;
   actor: string;
-  targetType: 'complaint' | 'user' | 'system';
+  targetType: 'complaint' | 'user' | 'system' | 'department';
   targetId: string;
   changes?: Record<string, { from: unknown; to: unknown }>;
   metadata?: Record<string, unknown>;

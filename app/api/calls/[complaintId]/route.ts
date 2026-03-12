@@ -8,6 +8,7 @@ import {
   errorResponse,
   getAccessTokenFromCookies,
 } from '@/lib/api-utils';
+import { toAdminCtx, authorize, getRoleLevel } from '@/lib/rbac';
 
 /**
  * GET /api/calls/[complaintId] — Get call logs for a complaint
@@ -42,18 +43,16 @@ export async function GET(
     }
 
     // ── RBAC enforcement ────────────────────────────────────────────────────
-    if (payload.role === 'department_admin') {
-      const adminDepts = payload.departments || [];
-      if (!adminDepts.includes(complaint.department)) {
-        return errorResponse('Access denied — complaint is not in your department', 403);
-      }
-    } else if (payload.role === 'staff') {
-      // Staff can only view call logs for complaints assigned to them
-      if (complaint.assignedTo !== payload.email) {
-        return errorResponse('Access denied — complaint is not assigned to you', 403);
-      }
+    const adminCtx = toAdminCtx(payload);
+    const roleLevel = getRoleLevel(adminCtx.role);
+    if (roleLevel >= 7 && complaint.assignedTo !== payload.email) {
+      // Officer-level and below can only view call logs for complaints assigned to them
+      return errorResponse('Access denied — complaint is not assigned to you', 403);
     }
-    // head_admin → no restrictions
+    if (adminCtx.departments.length > 0 && !adminCtx.departments.includes(complaint.department)) {
+      return errorResponse('Access denied — complaint is not in your department', 403);
+    }
+    // head_admin / cabinet / state_chief / district_commissioner → no restrictions
 
     // ── Fetch call logs ─────────────────────────────────────────────────────
     const callLogs = await CallLog.find({ complaintId })

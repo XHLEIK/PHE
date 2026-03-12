@@ -13,12 +13,17 @@ import {
   errorResponse,
   getAccessTokenFromCookies,
   getClientIp,
+  applyMutationRateLimit,
 } from '@/lib/api-utils';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function POST(req: NextRequest) {
   const correlationId = uuidv4();
   const ip = getClientIp(req);
+
+  // Redis-backed mutation rate limit (prevent brute-force password rotation)
+  const rlError = await applyMutationRateLimit(req, 'rotate-password');
+  if (rlError) return rlError;
 
   try {
     const token = getAccessTokenFromCookies(req);

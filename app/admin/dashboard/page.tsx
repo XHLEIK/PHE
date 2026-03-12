@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Sidebar from '@/components/admin/dashboard/Sidebar';
 import Topbar from '@/components/admin/dashboard/Topbar';
 import RealTimeComplaints from '@/components/admin/dashboard/RealTimeComplaints';
+import ActivityFeed from '@/components/admin/dashboard/ActivityFeed';
 import { getDashboardStats } from '@/lib/api-client';
 import { 
   FileText, 
@@ -13,6 +14,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import Link from 'next/link';
+import { StatCardSkeleton } from '@/components/skeletons/Skeletons';
 
 interface StatDisplay {
   title: string;
@@ -84,7 +86,7 @@ const AdminDashboard = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {loading ? (
               Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="bg-white border border-slate-200 p-5 rounded-xl animate-pulse h-28" />
+                <StatCardSkeleton key={i} />
               ))
             ) : (
               stats.map((stat) => {
@@ -141,6 +143,9 @@ const AdminDashboard = () => {
                   <span className="text-xs font-medium text-emerald-700">Online & Processing</span>
                 </div>
               </div>
+
+              {/* Activity Feed */}
+              <ActivityFeed limit={10} />
             </div>
           </div>
         </main>

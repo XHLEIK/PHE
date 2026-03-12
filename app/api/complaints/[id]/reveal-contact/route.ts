@@ -4,7 +4,8 @@ import Complaint from '@/lib/models/Complaint';
 import { createAuditEntry } from '@/lib/models/AuditLog';
 import { verifyAccessToken } from '@/lib/auth';
 import { revealContactSchema } from '@/lib/validations';
-import { successResponse, errorResponse, getAccessTokenFromCookies, getClientIp } from '@/lib/api-utils';
+import { successResponse, errorResponse, getAccessTokenFromCookies, getClientIp, applyMutationRateLimit } from '@/lib/api-utils';
+import { authorize, toAdminCtx, AuthorizationError, getRoleLevel } from '@/lib/rbac';
 
 /**
  * POST /api/complaints/[id]/reveal-contact
@@ -16,6 +17,10 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Redis-backed mutation rate limit
+  const rlError = await applyMutationRateLimit(req, 'reveal-contact');
+  if (rlError) return rlError;
+
   try {
     const token = getAccessTokenFromCookies(req);
     if (!token) return errorResponse('Authentication required', 401);
@@ -23,10 +28,8 @@ export async function POST(
     const payload = verifyAccessToken(token);
     if (!payload) return errorResponse('Invalid or expired token', 401);
 
-    // Staff cannot reveal contact information
-    if (payload.role === 'staff') {
-      return errorResponse('Staff members do not have permission to reveal contact information', 403);
-    }
+    const adminCtx = toAdminCtx(payload);
+    authorize(adminCtx, 'complaint:reveal-contact');
 
     const body = await req.json();
     const parsed = revealContactSchema.safeParse(body);
@@ -45,11 +48,16 @@ export async function POST(
 
     if (!complaint) return errorResponse('Complaint not found', 404);
 
-    // Department scope check for department_admin
-    if (payload.role === 'department_admin' && payload.departments?.length) {
-      if (!payload.departments.includes(String((complaint as any).department))) {
-        return errorResponse('You do not have access to this complaint', 403);
-      }
+    // RBAC scope check
+    try {
+      authorize(adminCtx, 'complaint:reveal-contact', {
+        state: (complaint as any).state,
+        district: (complaint as any).district,
+        department: String((complaint as any).department),
+      });
+    } catch (e) {
+      if (e instanceof AuthorizationError) return errorResponse('You do not have access to this complaint', 403);
+      throw e;
     }
 
     // Always write audit entry — reason is mandatory and structured

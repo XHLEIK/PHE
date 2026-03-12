@@ -68,11 +68,14 @@ function buildRoomMetadata(complaint: IComplaint): string {
     complaintId: complaint.complaintId,
     citizenName: complaint.submitterName || 'Citizen',
     complaintTitle: complaint.title,
+    complaintDescription: complaint.description,
     complaintSummary: complaint.aiSummary || complaint.description.slice(0, 200),
     department: dept?.label || complaint.department || 'Unassigned',
     departmentId: complaint.department,
     priority: complaint.priority,
     phone: complaint.submitterPhone,
+    location: complaint.location || '',
+    category: complaint.aiCategory || complaint.category || '',
   });
 }
 

@@ -3,11 +3,12 @@ import connectDB from '@/lib/db';
 import Department, { auditDepartmentChange } from '@/lib/models/Department';
 import { verifyAccessToken } from '@/lib/auth';
 import { successResponse, errorResponse, getAccessTokenFromCookies, getClientIp } from '@/lib/api-utils';
+import { toAdminCtx, authorize, AuthorizationError, getRoleLevel } from '@/lib/rbac';
 
 /**
  * GET /api/admin/departments — List all departments
- * - head_admin: all departments (including inactive)
- * - department_admin/staff: active departments only
+ * - head_admin/cabinet: all departments (including inactive)
+ * - others: active departments only
  */
 export async function GET(req: NextRequest) {
   try {
@@ -16,9 +17,12 @@ export async function GET(req: NextRequest) {
     const payload = verifyAccessToken(token);
     if (!payload) return errorResponse('Invalid or expired token', 401);
 
+    const adminCtx = toAdminCtx(payload);
+
     await connectDB();
 
-    const filter = (payload.role === 'department_admin' || payload.role === 'staff') ? { active: true } : {};
+    // Top-level roles (level ≤ 1) see all including inactive
+    const filter = getRoleLevel(adminCtx.role) > 1 ? { active: true } : {};
     const departments = await Department.find(filter).sort({ label: 1 }).lean();
 
     return successResponse(departments);
@@ -29,7 +33,7 @@ export async function GET(req: NextRequest) {
 }
 
 /**
- * POST /api/admin/departments — Create a new department (head_admin only)
+ * POST /api/admin/departments — Create a new department (head_admin/cabinet only)
  */
 export async function POST(req: NextRequest) {
   try {
@@ -38,8 +42,13 @@ export async function POST(req: NextRequest) {
     const payload = verifyAccessToken(token);
     if (!payload) return errorResponse('Invalid or expired token', 401);
 
-    if (payload.role !== 'head_admin') {
-      return errorResponse('Only head administrators can create departments', 403);
+    const adminCtx = toAdminCtx(payload);
+
+    try {
+      authorize(adminCtx, 'department:create');
+    } catch (e) {
+      if (e instanceof AuthorizationError) return errorResponse(e.message, 403);
+      throw e;
     }
 
     const body = await req.json();

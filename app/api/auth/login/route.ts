@@ -15,25 +15,29 @@ import {
   successResponse,
   errorResponse,
   getClientIp,
-  checkRateLimit,
 } from '@/lib/api-utils';
+import { getLoginRateLimiter } from '@/lib/redis';
 import { v4 as uuidv4 } from 'uuid';
 
-const LOGIN_MAX = parseInt(process.env.LOGIN_RATE_LIMIT_MAX || '5', 10);
-const LOGIN_WINDOW = parseInt(process.env.LOGIN_LOCKOUT_DURATION_MS || '900000', 10);
 const MAX_FAILED_ATTEMPTS = 5;
+const LOGIN_WINDOW = parseInt(process.env.LOGIN_LOCKOUT_DURATION_MS || '900000', 10);
 
 export async function POST(req: NextRequest) {
   const correlationId = uuidv4();
   const ip = getClientIp(req);
 
-  // Rate limit: per-IP
-  const rl = checkRateLimit(`login:${ip}`, LOGIN_MAX, LOGIN_WINDOW);
-  if (!rl.allowed) {
-    return errorResponse(
-      'Too many login attempts. Please try again later.',
-      429
-    );
+  // Redis-backed rate limit: per-IP
+  try {
+    const limiter = getLoginRateLimiter();
+    const { success } = await limiter.limit(`login:${ip}`);
+    if (!success) {
+      return errorResponse(
+        'Too many login attempts. Please try again later.',
+        429
+      );
+    }
+  } catch (rlErr) {
+    console.warn('[AUTH LOGIN] Redis rate limit unavailable, allowing request:', rlErr);
   }
 
   try {
@@ -105,14 +109,16 @@ export async function POST(req: NextRequest) {
     user.isLocked = false;
     user.lockUntil = null;
     user.lastLoginAt = new Date();
+    user.lastLoginIP = ip;
     await user.save();
 
-    // Generate tokens — include departments for department_admin and staff roles
+    // Generate tokens — include departments + locationScope for RBAC-scoped roles
     const tokenPayload = {
       userId: user._id.toString(),
       email: user.email,
       role: user.role,
       departments: user.departments || [],
+      locationScope: user.locationScope || {},
     };
 
     const accessToken = generateAccessToken(tokenPayload);

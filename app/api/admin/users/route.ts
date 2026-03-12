@@ -11,9 +11,20 @@ import {
   getClientIp,
 } from '@/lib/api-utils';
 import { v4 as uuidv4 } from 'uuid';
+import {
+  toAdminCtx,
+  authorize,
+  buildAdminScopeQuery,
+  canCreateRole,
+  scopeContains,
+  validateLocationForRole,
+  ROLE_META,
+  AuthorizationError,
+} from '@/lib/rbac';
+import type { AdminRole } from '@/lib/rbac';
 
 /**
- * GET /api/admin/users — List all admin users (admin only)
+ * GET /api/admin/users — List admin users (scope-filtered by RBAC)
  */
 export async function GET(req: NextRequest) {
   try {
@@ -27,9 +38,22 @@ export async function GET(req: NextRequest) {
       return errorResponse('Invalid or expired token', 401);
     }
 
+    const adminCtx = toAdminCtx(payload);
+
+    try {
+      authorize(adminCtx, 'user:view');
+    } catch (e) {
+      if (e instanceof AuthorizationError) return errorResponse(e.message, 403);
+      throw e;
+    }
+
     await connectDB();
 
-    const admins = await User.find({}).select('-passwordHash -__v').sort({ createdAt: -1 }).lean();
+    const scopeFilter = buildAdminScopeQuery(adminCtx);
+    const admins = await User.find(scopeFilter)
+      .select('-passwordHash -__v')
+      .sort({ createdAt: -1 })
+      .lean();
 
     return successResponse(admins);
   } catch (err) {
@@ -39,7 +63,14 @@ export async function GET(req: NextRequest) {
 }
 
 /**
- * POST /api/admin/users — Create a new admin user (admin only)
+ * POST /api/admin/users — Create a new admin user (RBAC-controlled)
+ *
+ * Enforces:
+ *   - Creator must have 'user:create' permission
+ *   - CREATION_MATRIX: role hierarchy check
+ *   - Scope containment: target scope must be within creator's scope
+ *   - Location validation: required fields per role
+ *   - Department constraint: department-scoped roles need at least 1 department
  */
 export async function POST(req: NextRequest) {
   const correlationId = uuidv4();
@@ -56,6 +87,16 @@ export async function POST(req: NextRequest) {
       return errorResponse('Invalid or expired token', 401);
     }
 
+    const adminCtx = toAdminCtx(payload);
+
+    // 1. Permission check
+    try {
+      authorize(adminCtx, 'user:create');
+    } catch (e) {
+      if (e instanceof AuthorizationError) return errorResponse(e.message, 403);
+      throw e;
+    }
+
     const body = await req.json();
     const parsed = createAdminSchema.safeParse(body);
 
@@ -65,44 +106,47 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // RBAC: Creation rules per role
-    // head_admin: can create head_admin, department_admin, staff
-    // department_admin: can create staff within their own departments only
-    // staff: cannot create any admin
-    if (payload.role === 'staff') {
-      return errorResponse('Staff members cannot create admin accounts', 403);
+    const targetRole = parsed.data.role as AdminRole;
+
+    // 2. Creation matrix check
+    if (!canCreateRole(adminCtx.role, targetRole)) {
+      return errorResponse(
+        `Your role (${adminCtx.role}) cannot create ${targetRole} accounts`,
+        403
+      );
     }
 
-    if (payload.role === 'department_admin') {
-      // Department admins can only create staff
-      if (parsed.data.role !== 'staff') {
-        return errorResponse('Department admins can only create staff accounts', 403);
-      }
-      // Ensure new staff departments are a subset of creator's departments
-      if (!parsed.data.departments || parsed.data.departments.length === 0) {
-        return errorResponse('Staff must be assigned to at least one department', 400);
-      }
-      const creatorDepts = payload.departments || [];
-      const invalidDepts = parsed.data.departments.filter(d => !creatorDepts.includes(d));
+    // 3. Scope containment: target location must be within creator's scope
+    const targetScope = parsed.data.locationScope || {};
+    const targetScopeCtx = { role: targetRole, departments: parsed.data.departments || [], locationScope: targetScope };
+    if (!scopeContains(adminCtx, targetScopeCtx)) {
+      return errorResponse(
+        'Target location scope must be within your own jurisdiction',
+        403
+      );
+    }
+
+    // 4. Department scope: if creator is department-scoped, target depts must be a subset
+    if (adminCtx.departments.length > 0 && parsed.data.departments?.length) {
+      const invalidDepts = parsed.data.departments.filter(d => !adminCtx.departments.includes(d));
       if (invalidDepts.length > 0) {
         return errorResponse('You can only assign departments within your own scope', 403);
       }
     }
 
-    if (payload.role === 'head_admin') {
-      // head_admin can create any role — no extra restrictions
+    // 5. Validate location fields required by target role
+    const locResult = validateLocationForRole(targetRole, targetScope);
+    if (!locResult.valid) {
+      return errorResponse(`Missing required location fields for ${targetRole}: ${locResult.missing.join(', ')}`, 400);
     }
 
-    if (payload.role !== 'head_admin' && payload.role !== 'department_admin') {
-      return errorResponse('Insufficient permissions to create admin accounts', 403);
+    // 6. Department requirement for department-scoped roles
+    const meta = ROLE_META[targetRole];
+    if (meta.requiresDepartment && (!parsed.data.departments || parsed.data.departments.length === 0)) {
+      return errorResponse(`${meta.label} must be assigned to at least one department`, 400);
     }
 
     await connectDB();
-
-    // Validate departments for department_admin and staff roles
-    if ((parsed.data.role === 'department_admin' || parsed.data.role === 'staff') && (!parsed.data.departments || parsed.data.departments.length === 0)) {
-      return errorResponse('Department admin and staff must be assigned to at least one department', 400);
-    }
 
     // Check if email already exists
     const existing = await User.findOne({ email: parsed.data.email });
@@ -116,8 +160,10 @@ export async function POST(req: NextRequest) {
       email: parsed.data.email,
       name: parsed.data.name,
       passwordHash: hashedPassword,
-      role: parsed.data.role || 'staff',
+      role: targetRole,
       departments: parsed.data.departments || [],
+      locationScope: targetScope,
+      phone: parsed.data.phone || '',
       mustRotatePassword: true, // Force password change on first login
       createdBy: payload.email,
       isSeeded: false,
@@ -134,6 +180,7 @@ export async function POST(req: NextRequest) {
         name: { from: null, to: newAdmin.name },
         role: { from: null, to: newAdmin.role },
         departments: { from: null, to: newAdmin.departments },
+        locationScope: { from: null, to: newAdmin.locationScope },
       },
       metadata: { createdBy: payload.email },
       correlationId,

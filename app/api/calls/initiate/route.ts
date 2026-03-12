@@ -10,6 +10,7 @@ import {
   errorResponse,
   getAccessTokenFromCookies,
 } from '@/lib/api-utils';
+import { authorize, toAdminCtx } from '@/lib/rbac';
 
 const MAX_CALLS_PER_COMPLAINT = Number(process.env.MAX_CALLS_PER_COMPLAINT || '3');
 const MAX_DAILY_CALLS = Number(process.env.MAX_DAILY_CALLS || '100');
@@ -27,10 +28,9 @@ export async function POST(req: NextRequest) {
     const payload = verifyAccessToken(token);
     if (!payload) return errorResponse('Invalid or expired token', 401);
 
-    // Only head_admin and department_admin can initiate calls
-    if (payload.role === 'staff') {
-      return errorResponse('Insufficient permissions. Staff cannot initiate calls.', 403);
-    }
+    // RBAC: require call:initiate permission
+    const adminCtx = toAdminCtx(payload);
+    authorize(adminCtx, 'call:initiate');
 
     // ── Parse body ──────────────────────────────────────────────────────────
     const body = await req.json();
@@ -48,10 +48,9 @@ export async function POST(req: NextRequest) {
       return errorResponse('Complaint not found', 404);
     }
 
-    // ── Department scoping for department_admin ─────────────────────────────
-    if (payload.role === 'department_admin') {
-      const adminDepts = payload.departments || [];
-      if (!adminDepts.includes(complaint.department)) {
+    // ── Department scoping ───────────────────────────────────────────────────────────
+    if (adminCtx.departments.length > 0) {
+      if (!adminCtx.departments.includes(complaint.department)) {
         return errorResponse('You can only initiate calls for complaints in your department', 403);
       }
     }

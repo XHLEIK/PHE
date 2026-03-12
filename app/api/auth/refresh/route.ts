@@ -57,6 +57,7 @@ export async function POST(req: NextRequest) {
       email: user.email,
       role: user.role,
       departments: user.departments || [],
+      locationScope: user.locationScope || {},
     };
 
     const newAccessToken = generateAccessToken(newPayload);
