@@ -3,7 +3,18 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Shield, Eye, EyeOff, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  Building2,
+  Eye,
+  EyeOff,
+  LockKeyhole,
+  Mail,
+  Phone,
+  ShieldCheck,
+  User,
+  Waves,
+} from 'lucide-react';
 import { registerCitizen, verifyCitizenOtp, resendCitizenOtp } from '@/lib/citizen-api-client';
 
 type Step = 'register' | 'verify';
@@ -32,7 +43,6 @@ export default function CitizenRegisterPage() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [resendTimer, setResendTimer] = useState(60);
   const [canResend, setCanResend] = useState(false);
-  const [devOtp, setDevOtp] = useState('');
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Resend timer countdown
@@ -115,10 +125,6 @@ export default function CitizenRegisterPage() {
       });
 
       if (result.success) {
-        // Capture devOtp if returned (development mode)
-        if (result.data && typeof result.data === 'object' && 'devOtp' in result.data) {
-          setDevOtp((result.data as Record<string, string>).devOtp);
-        }
         setStep('verify');
         setResendTimer(60);
         setCanResend(false);
@@ -195,36 +201,64 @@ export default function CitizenRegisterPage() {
   };
 
   const inputCls = (err?: string) =>
-    `w-full rounded-lg border px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 bg-[#faf7f0] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors ${
-      err ? 'border-red-400 bg-red-50' : 'border-slate-200'
+    `w-full rounded-lg border bg-gov-neutral-50 px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 transition focus:outline-none focus:ring-2 focus:ring-gov-aqua-700 ${
+      err ? 'border-red-400 bg-red-50' : 'border-gov-blue-200'
     }`;
+
+  const AuthBackground = () => (
+    <>
+      <div
+        className="pointer-events-none absolute inset-0 opacity-60"
+        style={{
+          backgroundImage:
+            'radial-gradient(circle at 12% 15%, rgba(0, 172, 193, 0.18), transparent 34%), radial-gradient(circle at 84% 10%, rgba(15, 76, 129, 0.16), transparent 28%), radial-gradient(circle at 50% 88%, rgba(0, 142, 163, 0.12), transparent 30%)',
+        }}
+      />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'radial-gradient(#0f4c81 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
+    </>
+  );
 
   // ── OTP Verification UI ─────────────────────────────────────────────────
   if (step === 'verify') {
     return (
-      <main className="min-h-screen bg-[#faf7f0] flex items-center justify-center p-4 font-sans">
-        <div className="w-full max-w-md">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden">
-            <div className="h-1 w-full bg-gradient-to-r from-amber-700 via-yellow-400 to-amber-700" />
-
-            <div className="p-6 text-center">
-              <div className="inline-flex items-center justify-center w-14 h-14 bg-amber-50 border border-amber-200 rounded-2xl mb-4">
-                <CheckCircle2 size={28} className="text-amber-700" />
+      <main className="auth-page-enter relative min-h-screen overflow-hidden bg-gradient-to-b from-gov-aqua-50 via-white to-gov-neutral-50 font-sans">
+        <AuthBackground />
+        <div className="landing-container relative py-8 md:py-14">
+          <div className="mx-auto grid max-w-5xl overflow-hidden rounded-2xl border border-gov-blue-100 bg-white/95 shadow-2xl md:grid-cols-[1.05fr_1fr]">
+            <aside className="hidden bg-gradient-to-br from-gov-blue-900 via-gov-blue-800 to-gov-blue-700 p-8 text-white md:block">
+              <div className="mb-8 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/20">
+                <ShieldCheck className="h-6 w-6" aria-hidden="true" />
               </div>
-              <h2 className="text-xl font-bold text-slate-900">Verify Your Email</h2>
-              <p className="text-sm text-slate-500 mt-2">
-                We sent a 6-digit code to <strong className="text-slate-700">{form.email}</strong>
+              <h1 className="text-2xl font-bold leading-tight">Citizen Verification Portal</h1>
+              <p className="mt-3 text-sm leading-7 text-blue-100">
+                Confirm your email to activate your citizen account and continue to the grievance dashboard.
+              </p>
+              <div className="mt-8 space-y-4 text-sm text-blue-100">
+                <div className="flex items-start gap-3">
+                  <Waves className="mt-0.5 h-4 w-4 text-gov-aqua-200" aria-hidden="true" />
+                  <span>Verified users receive secure status updates and department responses.</span>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Building2 className="mt-0.5 h-4 w-4 text-gov-aqua-200" aria-hidden="true" />
+                  <span>Supports transparent and accountable water grievance handling.</span>
+                </div>
+              </div>
+            </aside>
+
+            <section className="p-6 md:p-8">
+              <button
+                onClick={() => setStep('register')}
+                className="mb-5 inline-flex items-center gap-1 text-sm text-slate-500 transition-colors hover:text-gov-blue-800"
+              >
+                <ArrowLeft size={14} /> Back to registration
+              </button>
+
+              <h2 className="text-2xl font-bold tracking-tight text-gov-blue-900">Verify Your Email</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                We sent a 6-digit code to <strong className="text-slate-800">{form.email}</strong>
               </p>
 
-              {/* Dev mode: show OTP directly */}
-              {devOtp && process.env.NEXT_PUBLIC_DEV_MODE === 'true' && (
-                <div className="mt-3 rounded-lg bg-blue-50 border border-blue-200 px-4 py-2 text-sm text-blue-700">
-                  🔑 Dev OTP: <strong className="font-mono tracking-widest">{devOtp}</strong>
-                </div>
-              )}
-
-              {/* OTP input boxes */}
-              <div className="flex justify-center gap-2.5 mt-8" onPaste={handleOtpPaste}>
+              <div className="mt-6 flex justify-center gap-2" onPaste={handleOtpPaste}>
                 {otp.map((digit, i) => (
                   <input
                     key={i}
@@ -235,8 +269,9 @@ export default function CitizenRegisterPage() {
                     value={digit}
                     onChange={e => handleOtpChange(i, e.target.value)}
                     onKeyDown={e => handleOtpKeyDown(i, e)}
-                    className={`w-12 h-14 text-center text-xl font-bold rounded-xl border-2 bg-[#faf7f0] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors ${
-                      otpError ? 'border-red-300' : 'border-slate-200'
+                    aria-label={`OTP digit ${i + 1}`}
+                    className={`h-14 w-12 rounded-lg border text-center text-xl font-bold text-gov-blue-900 transition focus:outline-none focus:ring-2 focus:ring-gov-aqua-700 ${
+                      otpError ? 'border-red-300 bg-red-50' : 'border-gov-blue-200 bg-gov-neutral-50'
                     }`}
                   />
                 ))}
@@ -249,14 +284,14 @@ export default function CitizenRegisterPage() {
               <button
                 onClick={handleVerify}
                 disabled={isVerifying || otp.join('').length !== 6}
-                className="mt-6 w-full py-3 rounded-xl font-bold text-white text-sm bg-amber-700 hover:bg-amber-800 disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                className="landing-btn-primary mt-6 w-full justify-center disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isVerifying ? (
                   <>
                     <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M21 12a9 9 0 1 1-6.219-8.56" />
                     </svg>
-                    Verifying…
+                    Verifying...
                   </>
                 ) : (
                   'Verify & Continue'
@@ -267,7 +302,7 @@ export default function CitizenRegisterPage() {
                 {canResend ? (
                   <button
                     onClick={handleResend}
-                    className="font-semibold text-amber-700 hover:text-amber-800"
+                    className="font-semibold text-gov-blue-800 transition-colors hover:text-gov-blue-700"
                   >
                     Resend Code
                   </button>
@@ -276,13 +311,10 @@ export default function CitizenRegisterPage() {
                 )}
               </div>
 
-              <button
-                onClick={() => setStep('register')}
-                className="mt-4 inline-flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 transition-colors"
-              >
-                <ArrowLeft size={12} /> Back to registration
-              </button>
-            </div>
+              <p className="mt-7 border-t border-slate-100 pt-4 text-xs text-slate-500">
+                Arunachal Pradesh PHE &amp; Water Supply Department Citizen Services
+              </p>
+            </section>
           </div>
         </div>
       </main>
@@ -291,159 +323,182 @@ export default function CitizenRegisterPage() {
 
   // ── Registration UI ─────────────────────────────────────────────────────
   return (
-    <main className="min-h-screen bg-[#faf7f0] flex items-center justify-center p-4 relative overflow-hidden font-sans">
-      <div
-        className="absolute inset-0 opacity-[0.03] pointer-events-none"
-        style={{ backgroundImage: 'radial-gradient(#b45309 1px, transparent 1px)', backgroundSize: '40px 40px' }}
-      />
+    <main className="auth-page-enter relative min-h-screen overflow-hidden bg-gradient-to-b from-gov-aqua-50 via-white to-gov-neutral-50 font-sans">
+      <AuthBackground />
 
-      <div className="w-full max-w-md z-10">
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-amber-700 rounded-2xl shadow-lg shadow-amber-700/20 mb-4">
-            <Shield size={28} className="text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Create Account</h1>
-          <p className="text-sm text-slate-500 mt-1">Register to submit and track grievances</p>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden">
-          <div className="h-1 w-full bg-gradient-to-r from-amber-700 via-yellow-400 to-amber-700" />
-
-          <form onSubmit={handleRegister} className="p-6 space-y-4">
-            {/* Name */}
-            <div>
-              <label htmlFor="name" className="block text-sm font-semibold text-slate-800 mb-1">
-                Full Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="name" name="name" type="text" autoComplete="name"
-                value={form.name} onChange={handleChange} onBlur={handleBlur}
-                placeholder="As per official records"
-                className={inputCls(errors.name)}
-              />
-              {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name}</p>}
+      <div className="landing-container relative py-8 md:py-14">
+        <div className="mx-auto grid max-w-5xl overflow-hidden rounded-2xl border border-gov-blue-100 bg-white/95 shadow-2xl md:grid-cols-[1.1fr_1fr]">
+          <aside className="hidden bg-gradient-to-br from-gov-blue-900 via-gov-blue-800 to-gov-blue-700 p-8 text-white md:block">
+            <div className="mb-8 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/20">
+              <ShieldCheck className="h-6 w-6" aria-hidden="true" />
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Phone */}
-              <div>
-                <label htmlFor="phone" className="block text-sm font-semibold text-slate-800 mb-1">
-                  Mobile Number <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="phone" name="phone" type="tel" autoComplete="tel"
-                  value={form.phone} onChange={handleChange} onBlur={handleBlur}
-                  placeholder="9876543210"
-                  className={inputCls(errors.phone)}
-                />
-                {errors.phone && <p className="mt-1 text-xs text-red-600">{errors.phone}</p>}
-              </div>
-
-              {/* Email */}
-              <div>
-                <label htmlFor="email" className="block text-sm font-semibold text-slate-800 mb-1">
-                  Email <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="email" name="email" type="email" autoComplete="email"
-                  value={form.email} onChange={handleChange} onBlur={handleBlur}
-                  placeholder="you@example.com"
-                  className={inputCls(errors.email)}
-                />
-                {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
-              </div>
-            </div>
-
-            {/* Password */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-semibold text-slate-800 mb-1">
-                Password <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <input
-                  id="password" name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="new-password"
-                  value={form.password} onChange={handleChange} onBlur={handleBlur}
-                  placeholder="Minimum 8 characters"
-                  className={`${inputCls(errors.password)} pr-10`}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-              {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* State */}
-              <div>
-                <label htmlFor="state" className="block text-sm font-semibold text-slate-800 mb-1">
-                  State <span className="text-slate-400 font-normal text-xs">(optional)</span>
-                </label>
-                <input
-                  id="state" name="state" type="text"
-                  value={form.state} onChange={handleChange}
-                  placeholder="e.g. Arunachal Pradesh"
-                  className={inputCls()}
-                />
-              </div>
-
-              {/* District */}
-              <div>
-                <label htmlFor="district" className="block text-sm font-semibold text-slate-800 mb-1">
-                  District <span className="text-slate-400 font-normal text-xs">(optional)</span>
-                </label>
-                <input
-                  id="district" name="district" type="text"
-                  value={form.district} onChange={handleChange}
-                  placeholder="e.g. Papum Pare"
-                  className={inputCls()}
-                />
-              </div>
-            </div>
-
-            {serverError && (
-              <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-                {serverError}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full py-3 rounded-xl font-bold text-white text-sm bg-amber-700 hover:bg-amber-800 disabled:opacity-60 disabled:cursor-not-allowed transition-colors shadow-md shadow-amber-700/10 flex items-center justify-center gap-2"
-            >
-              {isSubmitting ? (
-                <>
-                  <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-                  </svg>
-                  Creating account…
-                </>
-              ) : (
-                'Create Account'
-              )}
-            </button>
-          </form>
-
-          <div className="px-6 pb-6 text-center border-t border-slate-100 pt-4">
-            <p className="text-sm text-slate-500">
-              Already have an account?{' '}
-              <Link href="/citizen/login" className="font-semibold text-amber-700 hover:text-amber-800">
-                Sign In
-              </Link>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gov-aqua-100">Citizen Registration</p>
+            <h1 className="text-2xl font-bold leading-tight">Create Your Water Grievance Citizen Account</h1>
+            <p className="mt-3 text-sm leading-7 text-blue-100">
+              Register to report water supply issues, receive updates, and track complaint resolution progress.
             </p>
-          </div>
-        </div>
 
-        <p className="mt-6 text-center text-[11px] text-slate-400">
-          Samadhan AI — National Grievance Redressal Platform
-        </p>
+            <div className="mt-8 space-y-4 text-sm text-blue-100">
+              <div className="flex items-start gap-3">
+                <User className="mt-0.5 h-4 w-4 text-gov-aqua-200" aria-hidden="true" />
+                <span>One account for complaint submission, tracking, and communication.</span>
+              </div>
+              <div className="flex items-start gap-3">
+                <Building2 className="mt-0.5 h-4 w-4 text-gov-aqua-200" aria-hidden="true" />
+                <span>Connected to departmental workflows for faster response handling.</span>
+              </div>
+              <div className="flex items-start gap-3">
+                <Waves className="mt-0.5 h-4 w-4 text-gov-aqua-200" aria-hidden="true" />
+                <span>Designed for transparent governance of water infrastructure grievances.</span>
+              </div>
+            </div>
+          </aside>
+
+          <section className="p-6 md:p-8">
+            <h2 className="text-2xl font-bold tracking-tight text-gov-blue-900">Create Account</h2>
+            <p className="mt-1 text-sm text-slate-600">Register to submit and track grievances.</p>
+
+            <form onSubmit={handleRegister} className="mt-6 space-y-4">
+              <div>
+                <label htmlFor="name" className="mb-1 block text-sm font-semibold text-slate-800">
+                  Full Name <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                  <input
+                    id="name" name="name" type="text" autoComplete="name"
+                    value={form.name} onChange={handleChange} onBlur={handleBlur}
+                    placeholder="As per official records"
+                    className={`${inputCls(errors.name)} pl-9`}
+                  />
+                </div>
+                {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name}</p>}
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="phone" className="mb-1 block text-sm font-semibold text-slate-800">
+                    Mobile Number <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                    <input
+                      id="phone" name="phone" type="tel" autoComplete="tel"
+                      value={form.phone} onChange={handleChange} onBlur={handleBlur}
+                      placeholder="9876543210"
+                      className={`${inputCls(errors.phone)} pl-9`}
+                    />
+                  </div>
+                  {errors.phone && <p className="mt-1 text-xs text-red-600">{errors.phone}</p>}
+                </div>
+
+                <div>
+                  <label htmlFor="email" className="mb-1 block text-sm font-semibold text-slate-800">
+                    Email <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                    <input
+                      id="email" name="email" type="email" autoComplete="email"
+                      value={form.email} onChange={handleChange} onBlur={handleBlur}
+                      placeholder="you@example.com"
+                      className={`${inputCls(errors.email)} pl-9`}
+                    />
+                  </div>
+                  {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="password" className="mb-1 block text-sm font-semibold text-slate-800">
+                  Password <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                  <input
+                    id="password" name="password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    value={form.password} onChange={handleChange} onBlur={handleBlur}
+                    placeholder="Minimum 8 characters"
+                    className={`${inputCls(errors.password)} pl-9 pr-10`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-700"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="state" className="mb-1 block text-sm font-semibold text-slate-800">
+                    State <span className="text-xs font-normal text-slate-400">(optional)</span>
+                  </label>
+                  <input
+                    id="state" name="state" type="text"
+                    value={form.state} onChange={handleChange}
+                    placeholder="e.g. Arunachal Pradesh"
+                    className={inputCls()}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="district" className="mb-1 block text-sm font-semibold text-slate-800">
+                    District <span className="text-xs font-normal text-slate-400">(optional)</span>
+                  </label>
+                  <input
+                    id="district" name="district" type="text"
+                    value={form.district} onChange={handleChange}
+                    placeholder="e.g. Papum Pare"
+                    className={inputCls()}
+                  />
+                </div>
+              </div>
+
+              {serverError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {serverError}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="landing-btn-primary w-full justify-center disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSubmitting ? (
+                  <>
+                    <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                    </svg>
+                    Creating account...
+                  </>
+                ) : (
+                  'Create Account'
+                )}
+              </button>
+            </form>
+
+            <div className="mt-6 border-t border-slate-100 pt-5 text-center">
+              <p className="text-sm text-slate-600">
+                Already have an account?{' '}
+                <Link href="/citizen/login" className="font-semibold text-gov-blue-800 transition-colors hover:text-gov-blue-700">
+                  Sign In
+                </Link>
+              </p>
+            </div>
+
+            <p className="mt-7 text-xs text-slate-500">
+              Arunachal Pradesh PHE &amp; Water Supply Department Citizen Services
+            </p>
+          </section>
+        </div>
       </div>
     </main>
   );
