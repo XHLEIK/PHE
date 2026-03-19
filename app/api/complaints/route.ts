@@ -42,9 +42,9 @@ export async function POST(req: NextRequest) {
     if (!success) {
       return errorResponse('Too many complaints submitted. Please try again later.', 429);
     }
-  } catch (rlErr) {
+  } catch (rlErr: any) {
     // If Redis is down, allow the request through (fail-open) but log
-    console.warn('[COMPLAINT] Redis rate limit unavailable, allowing request:', rlErr);
+    console.warn('[COMPLAINT] Redis rate limit unavailable, allowing request:', rlErr.message || rlErr);
   }
 
   try {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -19,7 +19,7 @@ import { loginCitizen, resendCitizenOtp, verifyCitizenOtp } from '@/lib/citizen-
 
 type PageView = 'login' | 'verify';
 
-export default function CitizenLoginPage() {
+function CitizenLoginPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect') || '/citizen/complaints';
@@ -423,3 +423,12 @@ export default function CitizenLoginPage() {
     </main>
   );
 }
+
+export default function CitizenLoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gov-aqua-50" />}>
+      <CitizenLoginPageInner />
+    </Suspense>
+  );
+}
+

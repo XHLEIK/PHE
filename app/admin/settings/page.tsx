@@ -409,7 +409,7 @@ const SettingsPageInner = () => {
                                   </label>
                                   <input
                                     type="text"
-                                    placeholder={field === 'country' ? 'India' : `Enter ${field}...`}
+                                    placeholder={`Enter ${field}...`}
                                     value={newAdmin.locationScope[field] || ''}
                                     onChange={e => setNewAdmin(p => ({
                                       ...p,

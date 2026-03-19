@@ -499,7 +499,7 @@ export async function processScheduledCalls(): Promise<{
         },
         {
           sort: { callScheduledAt: 1 }, // Oldest first
-          new: true,
+          returnDocument: 'after',
         }
       );
 

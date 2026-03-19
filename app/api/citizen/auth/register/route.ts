@@ -23,8 +23,8 @@ export async function POST(req: NextRequest) {
     if (!success) {
       return errorResponse('Too many registration attempts. Please try again later.', 429);
     }
-  } catch (err) {
-    console.warn('[CITIZEN REGISTER] Redis rate limit unavailable:', err);
+  } catch (err: any) {
+    console.warn('[CITIZEN REGISTER] Redis rate limit unavailable:', err.message || err);
   }
 
   try {

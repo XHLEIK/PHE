@@ -37,8 +37,8 @@ export async function POST(req: NextRequest) {
         429
       );
     }
-  } catch (rlErr) {
-    console.warn('[AUTH LOGIN] Redis rate limit unavailable, allowing request:', rlErr);
+  } catch (rlErr: any) {
+    console.warn('[AUTH LOGIN] Redis rate limit unavailable, allowing request:', rlErr.message || rlErr);
   }
 
   try {

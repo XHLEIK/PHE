@@ -114,8 +114,8 @@ export async function POST(req: NextRequest) {
     if (!success) {
       return errorResponse('Too many complaints submitted. Please try again later.', 429);
     }
-  } catch (rlErr) {
-    console.warn('[CITIZEN COMPLAINT] Redis rate limit unavailable:', rlErr);
+  } catch (rlErr: any) {
+    console.warn('[CITIZEN COMPLAINT] Redis rate limit unavailable:', rlErr.message || rlErr);
   }
 
   try {

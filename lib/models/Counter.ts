@@ -121,7 +121,7 @@ export async function generateTrackingId(
   const counter = await Counter.findOneAndUpdate(
     { _id: prefix },
     { $inc: { seq: 1 } },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
+    { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
   );
 
   const seq = counter.seq.toString().padStart(6, '0');
@@ -149,7 +149,7 @@ export async function generatePheTrackingId(): Promise<string> {
   const counter = await Counter.findOneAndUpdate(
     { _id: prefix },
     { $inc: { seq: 1 } },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
+    { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
   );
 
   const seq = counter.seq.toString().padStart(6, '0');
