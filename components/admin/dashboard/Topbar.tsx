@@ -24,7 +24,7 @@ const Topbar = () => {
         const name = (user.name as string) || 'Admin';
         setUserName(name);
         setUserInitials(name.substring(0, 2).toUpperCase());
-        const role = (user.role as string) || 'support_staff';
+        const role = (user.role as string) || 'helpdesk';
         const meta = ROLE_META[role as AdminRole];
         if (meta) {
           setUserRole(meta.shortLabel);

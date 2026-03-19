@@ -37,15 +37,15 @@ export default function CitizenChatsPage() {
     });
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="citizen-page-shell max-w-5xl">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 bg-amber-100 text-amber-700 rounded-xl flex items-center justify-center">
+        <div className="w-10 h-10 bg-gov-aqua-50 text-gov-blue-700 rounded-xl border border-gov-aqua-200 flex items-center justify-center">
           <MessageSquare size={22} />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">AI Chat History</h1>
-          <p className="text-sm text-slate-500">
+          <h1 className="citizen-title text-2xl">AI Chat History</h1>
+          <p className="citizen-subtitle">
             All your conversations with the AI assistant about your grievances
           </p>
         </div>
@@ -58,9 +58,9 @@ export default function CitizenChatsPage() {
           Loading chats…
         </div>
       ) : sessions.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-amber-50 border border-amber-200 rounded-2xl mb-4">
-            <Inbox size={28} className="text-amber-700" />
+        <div className="citizen-card p-12 text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gov-aqua-50 border border-gov-aqua-200 rounded-2xl mb-4">
+            <Inbox size={28} className="text-gov-blue-700" />
           </div>
           <h3 className="text-lg font-bold text-slate-900 mb-1">No chat history yet</h3>
           <p className="text-sm text-slate-500 mb-6">
@@ -69,7 +69,7 @@ export default function CitizenChatsPage() {
           </p>
           <Link
             href="/citizen/complaints/new"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-amber-700 hover:bg-amber-800 text-white text-sm font-bold rounded-xl shadow-md transition-colors"
+            className="citizen-btn-primary"
           >
             File a Complaint
           </Link>
@@ -80,10 +80,10 @@ export default function CitizenChatsPage() {
             <Link
               key={s._id}
               href={`/citizen/chats/${encodeURIComponent(s.complaintId)}`}
-              className="block bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-amber-200 transition-all p-4 group"
+              className="block citizen-card hover:shadow-md hover:border-gov-aqua-200 transition-all p-4 group"
             >
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-gradient-to-br from-amber-100 to-amber-50 text-amber-700 rounded-xl flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 bg-gradient-to-br from-gov-aqua-100 to-gov-aqua-50 text-gov-blue-700 rounded-xl flex items-center justify-center shrink-0">
                   <Bot size={20} />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -96,7 +96,7 @@ export default function CitizenChatsPage() {
                 </div>
                 <ChevronRight
                   size={18}
-                  className="text-slate-300 group-hover:text-amber-600 shrink-0 transition-colors"
+                  className="text-slate-300 group-hover:text-gov-blue-700 shrink-0 transition-colors"
                 />
               </div>
             </Link>

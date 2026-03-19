@@ -23,7 +23,12 @@ export async function GET(req: NextRequest) {
 
     await connectDB();
 
-    const complaint = await Complaint.findOne({ complaintId: parsed.data.complaintId })
+    const complaint = await Complaint.findOne({
+      $or: [
+        { complaintId: parsed.data.complaintId },
+        { legacyIds: parsed.data.complaintId },
+      ],
+    })
       .select('complaintId title status priority department category location state district createdAt updatedAt aiSummary analysisStatus')
       .lean();
 
@@ -31,7 +36,10 @@ export async function GET(req: NextRequest) {
       return errorResponse('No complaint found with this tracking ID', 404);
     }
 
-    return successResponse(complaint);
+    return successResponse({
+      ...complaint,
+      matchedBy: (complaint as { complaintId: string }).complaintId === parsed.data.complaintId ? 'complaintId' : 'legacyId',
+    });
   } catch (err) {
     console.error('[COMPLAINT TRACK ERROR]', err);
     return errorResponse('Internal server error', 500);

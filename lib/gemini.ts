@@ -15,6 +15,7 @@ import Department from './models/Department';
 import { DEPARTMENT_IDS } from './constants';
 import { createAuditEntry } from './models/AuditLog';
 import { scheduleCall } from './call-scheduler';
+import { PHE_DEPARTMENT_IDS } from './constants/phe';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_MODEL = 'gemini-2.5-flash';
@@ -240,7 +241,11 @@ export async function processAnalysis(complaintId: string): Promise<void> {
     // Success — update complaint with AI results
     const analysis = result as GeminiAnalysisResult;
     complaint.analysisStatus = 'completed';
-    complaint.aiCategory = analysis.category;
+    const safeCategory = PHE_DEPARTMENT_IDS.includes(analysis.category)
+      ? analysis.category
+      : 'complaint_cell';
+
+    complaint.aiCategory = safeCategory;
     complaint.aiPriority = analysis.priority;
     complaint.aiSummary = analysis.summary;
     complaint.aiConfidence = analysis.confidence;
@@ -251,9 +256,13 @@ export async function processAnalysis(complaintId: string): Promise<void> {
     complaint.lastAnalysisError = null;
     complaint.analysisAttempts = (complaint.analysisAttempts || 0) + 1;
 
-    // Auto-assign department from AI category if not manually set
-    if (complaint.department === 'Unassigned' || !complaint.department) {
-      complaint.department = analysis.category;
+    // Auto-assign department from AI category (PHE-only safe assignment)
+    if (
+      complaint.department === 'Unassigned' ||
+      complaint.department === 'complaint_cell' ||
+      !complaint.department
+    ) {
+      complaint.department = safeCategory;
     }
 
     // Override priority with AI if currently default
@@ -270,7 +279,7 @@ export async function processAnalysis(complaintId: string): Promise<void> {
       targetId: complaint._id.toString(),
       metadata: {
         complaintId,
-        category: analysis.category,
+        category: safeCategory,
         priority: analysis.priority,
         confidence: analysis.confidence,
         modelVersion: analysis.modelVersion,

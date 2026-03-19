@@ -31,8 +31,8 @@ export async function POST(req: NextRequest) {
     if (!success) {
       return errorResponse('Too many login attempts. Please try again later.', 429);
     }
-  } catch (err) {
-    console.warn('[CITIZEN LOGIN] Redis rate limit unavailable:', err);
+  } catch (err: any) {
+    console.warn('[CITIZEN LOGIN] Redis rate limit unavailable:', err.message || err);
   }
 
   try {

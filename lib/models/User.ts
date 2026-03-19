@@ -31,6 +31,10 @@ const LocationScopeSchema = new Schema(
     country: { type: String, trim: true, default: '' },
     state: { type: String, trim: true, default: '' },
     district: { type: String, trim: true, default: '' },
+    circle: { type: String, trim: true, default: '' },
+    division: { type: String, trim: true, default: '' },
+    subDivision: { type: String, trim: true, default: '' },
+    section: { type: String, trim: true, default: '' },
     block: { type: String, trim: true, default: '' },
     area: { type: String, trim: true, default: '' },
   },
@@ -59,7 +63,7 @@ const UserSchema = new Schema<IUser>(
     role: {
       type: String,
       enum: ADMIN_ROLES as unknown as string[],
-      default: 'support_staff',
+      default: 'helpdesk',
     },
     departments: {
       type: [String],

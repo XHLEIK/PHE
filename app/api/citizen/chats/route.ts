@@ -1,12 +1,12 @@
 import { NextRequest } from 'next/server';
-import crypto from 'crypto';
 import connectDB from '@/lib/db';
 import ChatSession from '@/lib/models/ChatSession';
-import ChatMessage from '@/lib/models/ChatMessage';
 import Complaint from '@/lib/models/Complaint';
 import Citizen from '@/lib/models/Citizen';
 import { verifyAccessToken } from '@/lib/auth';
 import { successResponse, errorResponse } from '@/lib/api-utils';
+import { PHE_DEPARTMENT_IDS } from '@/lib/constants/phe';
+import { ensureComplaintChatBootstrap } from '@/lib/chat-bootstrap';
 
 /**
  * GET /api/citizen/chats
@@ -44,7 +44,10 @@ export async function GET(req: NextRequest) {
       emailFilter.push({ citizenId: citizen._id });
     }
 
-    const complaints = await Complaint.find({ $or: emailFilter })
+    const complaints = await Complaint.find({
+      $or: emailFilter,
+      department: { $in: PHE_DEPARTMENT_IDS },
+    })
       .select('complaintId title description location')
       .sort({ createdAt: -1 })
       .lean();
@@ -61,39 +64,30 @@ export async function GET(req: NextRequest) {
     const missingComplaints = complaints.filter((c) => !existingComplaintIds.has(c.complaintId));
 
     if (missingComplaints.length > 0) {
-      const sessionsToCreate = missingComplaints.map((c) => ({
-        complaintId: c.complaintId,
-        email,
-        title: c.title,
-        accessToken: crypto.randomBytes(32).toString('hex'),
-      }));
-
-      const messagesToCreate = missingComplaints.map((c) => ({
-        complaintId: c.complaintId,
-        senderType: 'user' as const,
-        content: `I have filed a grievance:\n\n**Title:** ${c.title}\n\n**Description:** ${c.description}\n\n**Location:** ${c.location || 'Not specified'}\n\nPlease help me with this issue.`,
-      }));
-
-      try {
-        await ChatSession.insertMany(sessionsToCreate, { ordered: false });
-        await ChatMessage.insertMany(messagesToCreate, { ordered: false });
-      } catch (bulkErr: unknown) {
-        // Ignore duplicate key errors (race condition safety)
-        if (
-          !bulkErr ||
-          typeof bulkErr !== 'object' ||
-          !('code' in bulkErr) ||
-          (bulkErr as { code: number }).code !== 11000
-        ) {
-          console.error('[CHATS LIST] Bulk create error:', bulkErr);
-        }
-      }
+      await Promise.allSettled(
+        missingComplaints.map((c) =>
+          ensureComplaintChatBootstrap(
+            {
+              complaintId: c.complaintId,
+              title: c.title,
+              description: c.description || c.title,
+              location: c.location,
+              department: 'complaint_cell',
+              status: 'pending',
+            },
+            email
+          )
+        )
+      );
     }
 
     // 5. Re-fetch all sessions (including the ones we just created)
+    const pheComplaintIds = complaints.map((c) => c.complaintId);
+
     const allSessions = await ChatSession.find({
       email,
       isDeleted: false,
+      complaintId: { $in: pheComplaintIds },
     })
       .sort({ createdAt: -1 })
       .select('complaintId title email accessToken createdAt updatedAt')

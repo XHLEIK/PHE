@@ -18,6 +18,7 @@ import {
 } from '@/lib/api-utils';
 import { getLoginRateLimiter } from '@/lib/redis';
 import { v4 as uuidv4 } from 'uuid';
+import { normalizeAdminRole } from '@/lib/rbac';
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOGIN_WINDOW = parseInt(process.env.LOGIN_LOCKOUT_DURATION_MS || '900000', 10);
@@ -36,8 +37,8 @@ export async function POST(req: NextRequest) {
         429
       );
     }
-  } catch (rlErr) {
-    console.warn('[AUTH LOGIN] Redis rate limit unavailable, allowing request:', rlErr);
+  } catch (rlErr: any) {
+    console.warn('[AUTH LOGIN] Redis rate limit unavailable, allowing request:', rlErr.message || rlErr);
   }
 
   try {
@@ -112,11 +113,17 @@ export async function POST(req: NextRequest) {
     user.lastLoginIP = ip;
     await user.save();
 
+    const normalizedRole = normalizeAdminRole(String(user.role || ''));
+    if (user.role !== normalizedRole) {
+      user.role = normalizedRole;
+      await user.save();
+    }
+
     // Generate tokens — include departments + locationScope for RBAC-scoped roles
     const tokenPayload = {
       userId: user._id.toString(),
       email: user.email,
-      role: user.role,
+      role: normalizedRole,
       departments: user.departments || [],
       locationScope: user.locationScope || {},
     };

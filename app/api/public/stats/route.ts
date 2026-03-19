@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import Complaint from '@/lib/models/Complaint';
+import { PHE_DEPARTMENT_IDS } from '@/lib/constants/phe';
 
 /**
  * GET /api/public/stats — Public transparency stats (no auth)
@@ -10,6 +11,8 @@ import Complaint from '@/lib/models/Complaint';
 export async function GET() {
   try {
     await connectDB();
+
+    const baseFilter = { department: { $in: PHE_DEPARTMENT_IDS } };
 
     const [
       total,
@@ -22,21 +25,24 @@ export async function GET() {
       priorityStats,
       last7Days,
     ] = await Promise.all([
-      Complaint.countDocuments(),
-      Complaint.countDocuments({ status: 'pending' }),
-      Complaint.countDocuments({ status: 'in_progress' }),
-      Complaint.countDocuments({ status: 'resolved' }),
-      Complaint.countDocuments({ status: 'closed' }),
-      Complaint.countDocuments({ status: 'escalated' }),
+      Complaint.countDocuments(baseFilter),
+      Complaint.countDocuments({ ...baseFilter, status: 'pending' }),
+      Complaint.countDocuments({ ...baseFilter, status: 'in_progress' }),
+      Complaint.countDocuments({ ...baseFilter, status: 'resolved' }),
+      Complaint.countDocuments({ ...baseFilter, status: 'closed' }),
+      Complaint.countDocuments({ ...baseFilter, status: 'escalated' }),
       Complaint.aggregate([
+        { $match: baseFilter },
         { $group: { _id: '$department', count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 10 },
       ]),
       Complaint.aggregate([
+        { $match: baseFilter },
         { $group: { _id: '$priority', count: { $sum: 1 } } },
       ]),
       Complaint.countDocuments({
+        ...baseFilter,
         createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
       }),
     ]);

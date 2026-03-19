@@ -20,8 +20,8 @@ export async function POST(req: NextRequest) {
     if (!success) {
       return errorResponse('Too many OTP requests. Please wait before trying again.', 429);
     }
-  } catch (err) {
-    console.warn('[CITIZEN SEND-OTP] Redis rate limit unavailable:', err);
+  } catch (err: any) {
+    console.warn('[CITIZEN SEND-OTP] Redis rate limit unavailable:', err.message || err);
   }
 
   try {

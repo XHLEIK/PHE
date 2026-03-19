@@ -6,6 +6,7 @@ import { verifyAccessToken } from '@/lib/auth';
 import { successResponse, errorResponse, getAccessTokenFromCookies } from '@/lib/api-utils';
 import { cached } from '@/lib/redis';
 import { toAdminCtx, authorize, buildScopeQuery, AuthorizationError } from '@/lib/rbac';
+import { PHE_DEPARTMENT_IDS } from '@/lib/constants/phe';
 
 /**
  * GET /api/admin/stats — Aggregated dashboard statistics (RBAC-scoped)
@@ -34,7 +35,10 @@ export async function GET(req: NextRequest) {
     await connectDB();
 
     // Build base filter from RBAC scope
-    const baseFilter = buildScopeQuery(adminCtx);
+    const baseFilter = {
+      ...buildScopeQuery(adminCtx),
+      department: { $in: PHE_DEPARTMENT_IDS },
+    };
 
     // Cache key scoped to role/scope
     const deptKey = adminCtx.departments.sort().join(',') || 'all';

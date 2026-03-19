@@ -16,14 +16,14 @@ import { getRoleLevel, canSeeSidebarItem } from '@/lib/rbac/client';
 
 const Sidebar = () => {
   const pathname = usePathname();
-  const [userRole, setUserRole] = useState<string>('support_staff');
+  const [userRole, setUserRole] = useState<string>('helpdesk');
   const [roleLevel, setRoleLevel] = useState<number>(10);
 
   const fetchRole = useCallback(async () => {
     try {
       const result = await getMe();
       if (result.success && result.data) {
-        const role = (result.data.user as Record<string, unknown>).role as string || 'support_staff';
+        const role = (result.data.user as Record<string, unknown>).role as string || 'helpdesk';
         setUserRole(role);
         setRoleLevel(getRoleLevel(role));
       }

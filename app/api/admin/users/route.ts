@@ -117,7 +117,13 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Scope containment: target location must be within creator's scope
-    const targetScope = parsed.data.locationScope || {};
+    const targetScope = targetRole === 'head_admin'
+      ? {}
+      : {
+          ...(parsed.data.locationScope || {}),
+          country: 'India',
+          state: 'Arunachal Pradesh',
+        };
     const targetScopeCtx = { role: targetRole, departments: parsed.data.departments || [], locationScope: targetScope };
     if (!scopeContains(adminCtx, targetScopeCtx)) {
       return errorResponse(

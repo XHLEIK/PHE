@@ -85,7 +85,7 @@ export async function PATCH(req: NextRequest) {
       const notification = await Notification.findOneAndUpdate(
         { _id: body.notificationId, recipientEmail: payload.email },
         { $set: { isRead: true, readAt: new Date() } },
-        { new: true }
+        { returnDocument: 'after' }
       );
       if (!notification) return errorResponse('Notification not found', 404);
       return successResponse(notification);

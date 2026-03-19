@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import Complaint from '@/lib/models/Complaint';
-import { generateTrackingId } from '@/lib/models/Counter';
+import { generatePheTrackingId } from '@/lib/models/Counter';
 import { createAuditEntry } from '@/lib/models/AuditLog';
 import { verifyAccessToken } from '@/lib/auth';
 import { createComplaintSchema, enhancedComplaintQuerySchema } from '@/lib/validations';
@@ -14,10 +14,9 @@ import {
 import { getComplaintRateLimiter, invalidateCacheByPrefix } from '@/lib/redis';
 import { processAnalysis } from '@/lib/gemini';
 import { v4 as uuidv4 } from 'uuid';
-import crypto from 'crypto';
 import { toAdminCtx, authorize, buildScopeQuery, AuthorizationError } from '@/lib/rbac';
-import ChatSession from '@/lib/models/ChatSession';
-import ChatMessage from '@/lib/models/ChatMessage';
+import { ARUNACHAL_DISTRICTS, PHE_DEPARTMENT_IDS } from '@/lib/constants/phe';
+import { ensureComplaintChatBootstrap } from '@/lib/chat-bootstrap';
 
 /**
  * POST /api/complaints — Submit a new complaint (public, rate-limited)
@@ -43,9 +42,9 @@ export async function POST(req: NextRequest) {
     if (!success) {
       return errorResponse('Too many complaints submitted. Please try again later.', 429);
     }
-  } catch (rlErr) {
+  } catch (rlErr: any) {
     // If Redis is down, allow the request through (fail-open) but log
-    console.warn('[COMPLAINT] Redis rate limit unavailable, allowing request:', rlErr);
+    console.warn('[COMPLAINT] Redis rate limit unavailable, allowing request:', rlErr.message || rlErr);
   }
 
   try {
@@ -60,10 +59,12 @@ export async function POST(req: NextRequest) {
 
     await connectDB();
 
-    // Generate nationally-unique tracking ID using state/district from geolocation
-    const state = parsed.data.state || 'Arunachal Pradesh';
-    const district = parsed.data.district || 'General';
-    const complaintId = await generateTrackingId(state, district);
+    // PHE-only tracking ID format: AP-PHE-YYYY-NNNNNN
+    const state = 'Arunachal Pradesh';
+    const district = ARUNACHAL_DISTRICTS.includes(parsed.data.district as (typeof ARUNACHAL_DISTRICTS)[number])
+      ? parsed.data.district
+      : 'Papum Pare';
+    const complaintId = await generatePheTrackingId();
 
     const complaint = await Complaint.create({
       complaintId,
@@ -80,7 +81,7 @@ export async function POST(req: NextRequest) {
       coordinates: parsed.data.coordinates || null,
       analysisStatus: 'queued',
       analysisAttempts: 0,
-      department: 'Unassigned',
+      department: 'complaint_cell',
       callConsent: parsed.data.callConsent ?? false,
       attachments: (parsed.data.attachments || []).map((a) => ({
         fileName: a.fileName,
@@ -130,26 +131,22 @@ export async function POST(req: NextRequest) {
       invalidateCacheByPrefix('stats:').catch(() => {});
       invalidateCacheByPrefix('analytics:').catch(() => {});
 
-      // Auto-create a ChatSession so the submitter can chat with AI
+      // Auto-create chat with initial citizen grievance text + first AI reply
       (async () => {
         try {
           const email = parsed.data.submitterEmail?.toLowerCase();
           if (email) {
-            const existing = await ChatSession.findOne({ complaintId: complaint.complaintId });
-            if (!existing) {
-              const accessToken = crypto.randomBytes(32).toString('hex');
-              await ChatSession.create({
+            await ensureComplaintChatBootstrap(
+              {
                 complaintId: complaint.complaintId,
-                email,
                 title: complaint.title,
-                accessToken,
-              });
-              await ChatMessage.create({
-                complaintId: complaint.complaintId,
-                senderType: 'user',
-                content: `I have filed a grievance:\n\n**Title:** ${complaint.title}\n\n**Description:** ${complaint.description}\n\n**Location:** ${complaint.location || 'Not specified'}\n\nPlease help me with this issue.`,
-              });
-            }
+                description: complaint.description,
+                location: complaint.location,
+                department: complaint.department,
+                status: complaint.status,
+              },
+              email
+            );
           }
         } catch (chatErr) {
           console.error('[COMPLAINT POST] Chat session auto-create error:', chatErr);
@@ -206,7 +203,10 @@ export async function GET(req: NextRequest) {
 
     // Build filter — enforce RBAC scope (location + department)
     const scopeFilter = buildScopeQuery(adminCtx);
-    const filter: Record<string, unknown> = { ...scopeFilter };
+    const filter: Record<string, unknown> = {
+      ...scopeFilter,
+      department: { $in: PHE_DEPARTMENT_IDS },
+    };
 
     if (status) filter.status = status;
     if (priority) filter.priority = priority;

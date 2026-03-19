@@ -1,14 +1,25 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Shield, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import {
+  ArrowLeft,
+  Building2,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Home,
+  LockKeyhole,
+  Mail,
+  ShieldCheck,
+  Waves,
+} from 'lucide-react';
 import { loginCitizen, resendCitizenOtp, verifyCitizenOtp } from '@/lib/citizen-api-client';
 
 type PageView = 'login' | 'verify';
 
-export default function CitizenLoginPage() {
+function CitizenLoginPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect') || '/citizen/complaints';
@@ -29,7 +40,6 @@ export default function CitizenLoginPage() {
   const [resendTimer, setResendTimer] = useState(0);
   const [canResend, setCanResend] = useState(true);
   const [otpSent, setOtpSent] = useState(false);
-  const [devOtp, setDevOtp] = useState('');
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Resend timer countdown
@@ -102,11 +112,8 @@ export default function CitizenLoginPage() {
     setResendTimer(60);
     setOtpSent(false);
     try {
-      const result = await resendCitizenOtp(email);
+      await resendCitizenOtp(email);
       setOtpSent(true);
-      if (result.data && typeof result.data === 'object' && 'devOtp' in result.data) {
-        setDevOtp((result.data as Record<string, string>).devOtp);
-      }
     } catch { /* ignore */ }
   };
 
@@ -148,45 +155,74 @@ export default function CitizenLoginPage() {
     }
   };
 
+  const AuthBackground = () => (
+    <>
+      <div
+        className="pointer-events-none absolute inset-0 opacity-60"
+        style={{
+          backgroundImage:
+            'radial-gradient(circle at 15% 20%, rgba(0, 172, 193, 0.18), transparent 35%), radial-gradient(circle at 85% 10%, rgba(15, 76, 129, 0.16), transparent 28%), radial-gradient(circle at 50% 90%, rgba(0, 142, 163, 0.12), transparent 30%)',
+        }}
+      />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'radial-gradient(#0f4c81 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
+    </>
+  );
+
   // ── OTP Verification View ─────────────────────────────────────────────────
   if (view === 'verify') {
     return (
-      <main className="min-h-screen bg-[#faf7f0] flex items-center justify-center p-4 relative overflow-hidden font-sans">
-        <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#b45309 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
-        <div className="w-full max-w-md z-10">
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-14 h-14 bg-amber-700 rounded-2xl shadow-lg shadow-amber-700/20 mb-4">
-              <Shield size={28} className="text-white" />
-            </div>
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Verify Your Email</h1>
-            <p className="text-sm text-slate-500 mt-1">
-              We sent a 6-digit code to <strong className="text-slate-700">{unverifiedEmail}</strong>
-            </p>
-          </div>
+      <main className="auth-page-enter relative min-h-screen overflow-hidden bg-gradient-to-b from-gov-aqua-50 via-white to-gov-neutral-50 font-sans">
+        <AuthBackground />
+        <div className="landing-container relative py-8 md:py-14">
+          <div className="mx-auto grid max-w-5xl overflow-hidden rounded-2xl border border-gov-blue-100 bg-white/95 shadow-2xl md:grid-cols-[1.05fr_1fr]">
+            <aside className="hidden bg-gradient-to-br from-gov-blue-900 via-gov-blue-800 to-gov-blue-700 p-8 text-white md:block">
+              <div className="mb-8 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/20">
+                <ShieldCheck className="h-6 w-6" aria-hidden="true" />
+              </div>
+              <h1 className="text-2xl font-bold leading-tight">Citizen Verification Portal</h1>
+              <p className="mt-3 text-sm leading-7 text-blue-100">
+                Confirm your identity to continue with secure access to water grievance tracking and updates.
+              </p>
+              <div className="mt-8 space-y-4">
+                <div className="flex items-start gap-3 text-sm text-blue-100">
+                  <Waves className="mt-0.5 h-4 w-4 text-gov-aqua-200" aria-hidden="true" />
+                  <span>Secure, authenticated access for citizen complaint management.</span>
+                </div>
+                <div className="flex items-start gap-3 text-sm text-blue-100">
+                  <Building2 className="mt-0.5 h-4 w-4 text-gov-aqua-200" aria-hidden="true" />
+                  <span>Direct departmental workflow integration and status transparency.</span>
+                </div>
+              </div>
+            </aside>
 
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden">
-            <div className="h-1 w-full bg-gradient-to-r from-amber-700 via-yellow-400 to-amber-700" />
-            <div className="p-6 space-y-6">
-              {/* Back link */}
-              <button onClick={() => { setView('login'); setOtp(['', '', '', '', '', '']); setOtpError(''); }} className="flex items-center gap-1 text-sm text-slate-500 hover:text-amber-700 transition-colors">
+            <section className="p-6 md:p-8">
+              <Link
+                href="/"
+                className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-gov-blue-800 transition-colors hover:text-gov-blue-700"
+              >
+                <Home size={14} /> Back to Home
+              </Link>
+
+              <button
+                onClick={() => { setView('login'); setOtp(['', '', '', '', '', '']); setOtpError(''); }}
+                className="mb-5 inline-flex items-center gap-1 text-sm text-slate-500 transition-colors hover:text-gov-blue-800"
+              >
                 <ArrowLeft size={14} /> Back to login
               </button>
 
+              <h2 className="text-2xl font-bold tracking-tight text-gov-blue-900">Verify Your Email</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                We sent a 6-digit code to <strong className="text-slate-800">{unverifiedEmail}</strong>
+              </p>
+
               {otpSent && (
-                <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">
-                  Verification code sent! Check your email inbox (and spam folder).
+                <div className="mt-5 inline-flex w-full items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4" aria-hidden="true" />
+                  Verification code sent. Please check inbox and spam folder.
                 </div>
               )}
 
-              {/* Dev mode: show OTP directly */}
-              {devOtp && process.env.NEXT_PUBLIC_DEV_MODE === 'true' && (
-                <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-2 text-sm text-blue-700">
-                  🔑 Dev OTP: <strong className="font-mono tracking-widest">{devOtp}</strong>
-                </div>
-              )}
-
-              {/* OTP inputs */}
-              <div className="flex justify-center gap-2" onPaste={handleOtpPaste}>
+              <div className="mt-6 flex justify-center gap-2" onPaste={handleOtpPaste}>
                 {otp.map((digit, i) => (
                   <input
                     key={i}
@@ -197,44 +233,44 @@ export default function CitizenLoginPage() {
                     value={digit}
                     onChange={e => handleOtpChange(i, e.target.value)}
                     onKeyDown={e => handleOtpKeyDown(i, e)}
-                    className="w-12 h-14 text-center text-xl font-bold border border-slate-200 rounded-lg bg-[#faf7f0] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors"
+                    aria-label={`OTP digit ${i + 1}`}
+                    className="h-14 w-12 rounded-lg border border-gov-blue-200 bg-gov-neutral-50 text-center text-xl font-bold text-gov-blue-900 transition focus:outline-none focus:ring-2 focus:ring-gov-aqua-700"
                   />
                 ))}
               </div>
 
               {otpError && (
-                <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{otpError}</div>
+                <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{otpError}</div>
               )}
 
               <button
                 onClick={handleVerify}
                 disabled={otp.join('').length !== 6 || isVerifying}
-                className="w-full py-3 rounded-xl font-bold text-white text-sm bg-amber-700 hover:bg-amber-800 disabled:opacity-60 disabled:cursor-not-allowed transition-colors shadow-md shadow-amber-700/10 flex items-center justify-center gap-2"
+                className="landing-btn-primary mt-6 w-full justify-center disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isVerifying ? (
                   <>
                     <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
-                    Verifying…
+                    Verifying...
                   </>
                 ) : 'Verify & Sign In'}
               </button>
 
-              {/* Resend */}
-              <div className="text-center">
+              <div className="mt-4 text-center">
                 {canResend ? (
-                  <button onClick={() => handleSendOtp(unverifiedEmail)} className="text-sm font-semibold text-amber-700 hover:text-amber-800">
+                  <button onClick={() => handleSendOtp(unverifiedEmail)} className="text-sm font-semibold text-gov-blue-800 transition-colors hover:text-gov-blue-700">
                     Resend Code
                   </button>
                 ) : (
-                  <p className="text-sm text-slate-400">Resend in {resendTimer}s</p>
+                  <p className="text-sm text-slate-500">Resend in {resendTimer}s</p>
                 )}
               </div>
-            </div>
-          </div>
 
-          <p className="mt-6 text-center text-[11px] text-slate-400">
-            Samadhan AI — National Grievance Redressal Platform
-          </p>
+              <p className="mt-8 border-t border-slate-100 pt-4 text-xs text-slate-500">
+                Arunachal Pradesh PHE &amp; Water Supply Department Citizen Services
+              </p>
+            </section>
+          </div>
         </div>
       </main>
     );
@@ -242,128 +278,157 @@ export default function CitizenLoginPage() {
 
   // ── Login View ───────────────────────────────────────────────────────────
   return (
-    <main className="min-h-screen bg-[#faf7f0] flex items-center justify-center p-4 relative overflow-hidden font-sans">
-      {/* Background pattern */}
-      <div
-        className="absolute inset-0 opacity-[0.03] pointer-events-none"
-        style={{ backgroundImage: 'radial-gradient(#b45309 1px, transparent 1px)', backgroundSize: '40px 40px' }}
-      />
+    <main className="auth-page-enter relative min-h-screen overflow-hidden bg-gradient-to-b from-gov-aqua-50 via-white to-gov-neutral-50 font-sans">
+      <AuthBackground />
 
-      <div className="w-full max-w-md z-10">
-        {/* Branding header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-amber-700 rounded-2xl shadow-lg shadow-amber-700/20 mb-4">
-            <Shield size={28} className="text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Welcome Back</h1>
-          <p className="text-sm text-slate-500 mt-1">Sign in to your citizen portal</p>
-        </div>
-
-        {/* Login card */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden">
-          <div className="h-1 w-full bg-gradient-to-r from-amber-700 via-yellow-400 to-amber-700" />
-
-          <form onSubmit={handleSubmit} className="p-6 space-y-5">
-            {/* Email */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-semibold text-slate-800 mb-1.5">
-                Email Address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                value={form.email}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                placeholder="you@example.com"
-                className={`w-full rounded-lg border px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 bg-[#faf7f0] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors ${
-                  errors.email ? 'border-red-400 bg-red-50' : 'border-slate-200'
-                }`}
-              />
-              {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
+      <div className="landing-container relative py-8 md:py-14">
+        <div className="mx-auto grid max-w-5xl overflow-hidden rounded-2xl border border-gov-blue-100 bg-white/95 shadow-2xl md:grid-cols-[1.1fr_1fr]">
+          <aside className="hidden bg-gradient-to-br from-gov-blue-900 via-gov-blue-800 to-gov-blue-700 p-8 text-white md:block">
+            <div className="mb-8 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/20">
+              <ShieldCheck className="h-6 w-6" aria-hidden="true" />
             </div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gov-aqua-100">Citizen Portal</p>
+            <h1 className="text-2xl font-bold leading-tight">Arunachal Pradesh PHE Water Grievance Services</h1>
+            <p className="mt-3 text-sm leading-7 text-blue-100">
+              Sign in to submit, monitor, and manage water supply grievances with transparent departmental updates.
+            </p>
 
-            {/* Password */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-semibold text-slate-800 mb-1.5">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  value={form.password}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  placeholder="••••••••"
-                  className={`w-full rounded-lg border px-3.5 py-2.5 pr-10 text-sm text-slate-800 placeholder-slate-400 bg-[#faf7f0] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors ${
-                    errors.password ? 'border-red-400 bg-red-50' : 'border-slate-200'
-                  }`}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
+            <div className="mt-8 space-y-4 text-sm text-blue-100">
+              <div className="flex items-start gap-3">
+                <Mail className="mt-0.5 h-4 w-4 text-gov-aqua-200" aria-hidden="true" />
+                <span>Secure citizen authentication with verified communication channels.</span>
               </div>
-              {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
+              <div className="flex items-start gap-3">
+                <Building2 className="mt-0.5 h-4 w-4 text-gov-aqua-200" aria-hidden="true" />
+                <span>Integrated complaint workflow aligned with departmental resolution systems.</span>
+              </div>
+              <div className="flex items-start gap-3">
+                <Waves className="mt-0.5 h-4 w-4 text-gov-aqua-200" aria-hidden="true" />
+                <span>Focused on water infrastructure reliability and citizen service transparency.</span>
+              </div>
             </div>
+          </aside>
 
-            {/* Server error */}
-            {serverError && (
-              <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-                {serverError}
-              </div>
-            )}
-
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={!formValid || isSubmitting}
-              className="w-full py-3 rounded-xl font-bold text-white text-sm bg-amber-700 hover:bg-amber-800 disabled:opacity-60 disabled:cursor-not-allowed transition-colors shadow-md shadow-amber-700/10 flex items-center justify-center gap-2"
+          <section className="p-6 md:p-8">
+            <Link
+              href="/"
+              className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-gov-blue-800 transition-colors hover:text-gov-blue-700"
             >
-              {isSubmitting ? (
-                <>
-                  <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-                  </svg>
-                  Signing in…
-                </>
-              ) : (
-                'Sign In'
-              )}
-            </button>
-          </form>
+              <Home size={14} /> Back to Home
+            </Link>
 
-          {/* Footer links */}
-          <div className="px-6 pb-6 text-center space-y-3">
-            <div className="border-t border-slate-100 pt-4">
-              <p className="text-sm text-slate-500">
+            <h2 className="text-2xl font-bold tracking-tight text-gov-blue-900">Citizen Login</h2>
+            <p className="mt-1 text-sm text-slate-600">Sign in to access your grievance dashboard.</p>
+
+            <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+              <div>
+                <label htmlFor="email" className="mb-1.5 block text-sm font-semibold text-slate-800">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    value={form.email}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    placeholder="you@example.com"
+                    className={`w-full rounded-lg border bg-gov-neutral-50 py-2.5 pl-9 pr-3.5 text-sm text-slate-800 placeholder-slate-400 transition focus:outline-none focus:ring-2 focus:ring-gov-aqua-700 ${
+                      errors.email ? 'border-red-400 bg-red-50' : 'border-gov-blue-200'
+                    }`}
+                  />
+                </div>
+                {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
+              </div>
+
+              <div>
+                <label htmlFor="password" className="mb-1.5 block text-sm font-semibold text-slate-800">
+                  Password
+                </label>
+                <div className="relative">
+                  <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                  <input
+                    id="password"
+                    name="password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    value={form.password}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    placeholder="••••••••"
+                    className={`w-full rounded-lg border bg-gov-neutral-50 py-2.5 pl-9 pr-10 text-sm text-slate-800 placeholder-slate-400 transition focus:outline-none focus:ring-2 focus:ring-gov-aqua-700 ${
+                      errors.password ? 'border-red-400 bg-red-50' : 'border-gov-blue-200'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-700"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
+              </div>
+
+              {serverError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {serverError}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={!formValid || isSubmitting}
+                className="landing-btn-primary w-full justify-center disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSubmitting ? (
+                  <>
+                    <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                    </svg>
+                    Signing in...
+                  </>
+                ) : (
+                  'Sign In'
+                )}
+              </button>
+            </form>
+
+            <div className="mt-6 space-y-3 border-t border-slate-100 pt-5 text-center">
+              <p className="text-sm text-slate-600">
                 Don&apos;t have an account?{' '}
-                <Link href="/citizen/register" className="font-semibold text-amber-700 hover:text-amber-800">
+                <Link href="/citizen/register" className="font-semibold text-gov-blue-800 transition-colors hover:text-gov-blue-700">
                   Register
                 </Link>
               </p>
+              <Link
+                href="/citizen/track"
+                className="inline-flex items-center text-xs font-medium text-slate-500 transition-colors hover:text-gov-blue-700"
+              >
+                Track a complaint without signing in
+              </Link>
             </div>
-            <Link
-              href="/citizen/track"
-              className="inline-block text-xs text-slate-400 hover:text-amber-700 transition-colors"
-            >
-              Track a complaint without signing in →
-            </Link>
-          </div>
-        </div>
 
-        <p className="mt-6 text-center text-[11px] text-slate-400">
-          Samadhan AI — National Grievance Redressal Platform
-        </p>
+            <p className="mt-7 text-xs text-slate-500">
+              Arunachal Pradesh PHE &amp; Water Supply Department Citizen Services
+            </p>
+          </section>
+        </div>
       </div>
     </main>
   );
 }
+
+export default function CitizenLoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gov-aqua-50" />}>
+      <CitizenLoginPageInner />
+    </Suspense>
+  );
+}
+

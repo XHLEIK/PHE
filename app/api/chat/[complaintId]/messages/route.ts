@@ -137,7 +137,7 @@ export async function POST(
         title: complaint.title,
         description: complaint.description,
         location: complaint.location || '',
-        department: complaint.department || 'Unassigned',
+        department: complaint.department || 'complaint_cell',
         status: complaint.status,
         complaintId: complaint.complaintId,
       },

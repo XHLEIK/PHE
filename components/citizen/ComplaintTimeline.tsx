@@ -44,8 +44,8 @@ const TYPE_CONFIG: Record<string, { icon: React.ReactNode; dotColor: string; lin
   },
   ai: {
     icon: <BrainCircuit size={14} />,
-    dotColor: 'bg-amber-500 text-white',
-    lineColor: 'border-amber-300',
+    dotColor: 'bg-gov-blue-700 text-white',
+    lineColor: 'border-gov-aqua-200',
   },
 };
 
@@ -103,8 +103,8 @@ const ComplaintTimeline: React.FC<ComplaintTimelineProps> = ({ events }) => {
               )}
 
               {event.comment && (
-                <div className="mt-1.5 flex items-start gap-1.5 text-xs text-slate-500 bg-amber-50 rounded-lg px-3 py-2 border border-amber-100">
-                  <MessageSquare size={12} className="mt-0.5 shrink-0 text-amber-500" />
+                <div className="mt-1.5 flex items-start gap-1.5 text-xs text-slate-500 bg-gov-aqua-50 rounded-lg px-3 py-2 border border-gov-aqua-200">
+                  <MessageSquare size={12} className="mt-0.5 shrink-0 text-gov-blue-700" />
                   <span>{event.comment}</span>
                 </div>
               )}
