@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import Complaint from '@/lib/models/Complaint';
-import { generateTrackingId } from '@/lib/models/Counter';
+import { generatePheTrackingId } from '@/lib/models/Counter';
 import { createAuditEntry } from '@/lib/models/AuditLog';
 import {
   verifyAccessToken,
@@ -12,10 +12,10 @@ import { successResponse, errorResponse, getClientIp } from '@/lib/api-utils';
 import { getComplaintRateLimiter } from '@/lib/redis';
 import { processAnalysis } from '@/lib/gemini';
 import { v4 as uuidv4 } from 'uuid';
-import crypto from 'crypto';
 import Citizen from '@/lib/models/Citizen';
-import ChatSession from '@/lib/models/ChatSession';
-import ChatMessage from '@/lib/models/ChatMessage';
+import { ARUNACHAL_DISTRICTS } from '@/lib/constants/phe';
+import { PHE_DEPARTMENT_IDS } from '@/lib/constants/phe';
+import { ensureComplaintChatBootstrap } from '@/lib/chat-bootstrap';
 
 /**
  * GET /api/citizen/complaints — List authenticated citizen's own complaints
@@ -54,7 +54,10 @@ export async function GET(req: NextRequest) {
         { submitterEmail: payload.email },
       ],
     };
-    const filter: Record<string, unknown> = { ...ownershipFilter };
+    const filter: Record<string, unknown> = {
+      ...ownershipFilter,
+      department: { $in: PHE_DEPARTMENT_IDS },
+    };
     if (status) filter.status = status;
     if (search) filter.$text = { $search: search };
 
@@ -133,10 +136,13 @@ export async function POST(req: NextRequest) {
       return errorResponse('Citizen account not found', 404);
     }
 
-    // Use state/district from complaint form, fallback to citizen profile
-    const state = parsed.data.state || citizen.state || 'Arunachal Pradesh';
-    const district = parsed.data.district || citizen.district || 'General';
-    const complaintId = await generateTrackingId(state, district);
+    // PHE-only state and district scope
+    const state = 'Arunachal Pradesh';
+    const candidateDistrict = parsed.data.district || citizen.district || '';
+    const district = ARUNACHAL_DISTRICTS.includes(candidateDistrict as (typeof ARUNACHAL_DISTRICTS)[number])
+      ? candidateDistrict
+      : 'Papum Pare';
+    const complaintId = await generatePheTrackingId();
 
     const complaint = await Complaint.create({
       complaintId,
@@ -155,7 +161,7 @@ export async function POST(req: NextRequest) {
       coordinates: parsed.data.coordinates || null,
       analysisStatus: 'queued',
       analysisAttempts: 0,
-      department: 'Unassigned',
+      department: 'complaint_cell',
       callConsent: parsed.data.callConsent ?? false,
       attachments: (parsed.data.attachments || []).map((a) => ({
         fileName: a.fileName,
@@ -184,30 +190,6 @@ export async function POST(req: NextRequest) {
       ipAddress: ip,
     });
 
-    // Auto-create a ChatSession so the citizen can chat with AI immediately
-    try {
-      const existingSession = await ChatSession.findOne({ complaintId: complaint.complaintId });
-      if (!existingSession) {
-        const accessToken = crypto.randomBytes(32).toString('hex');
-        await ChatSession.create({
-          complaintId: complaint.complaintId,
-          email: citizen.email.toLowerCase(),
-          title: complaint.title,
-          accessToken,
-        });
-
-        // Create the first user message (summarising the complaint)
-        await ChatMessage.create({
-          complaintId: complaint.complaintId,
-          senderType: 'user',
-          content: `I have filed a grievance:\n\n**Title:** ${complaint.title}\n\n**Description:** ${complaint.description}\n\n**Location:** ${complaint.location || 'Not specified'}\n\nPlease help me with this issue.`,
-        });
-      }
-    } catch (chatErr) {
-      // Non-blocking: chat creation failure should not fail the complaint submission
-      console.error('[CITIZEN COMPLAINT] Chat session auto-create error:', chatErr);
-    }
-
     const response = successResponse(
       {
         complaintId: complaint.complaintId,
@@ -222,6 +204,20 @@ export async function POST(req: NextRequest) {
     setImmediate(() => {
       processAnalysis(complaint.complaintId).catch(err => {
         console.error('[CITIZEN COMPLAINT] Fire-and-forget analysis error:', err);
+      });
+
+      ensureComplaintChatBootstrap(
+        {
+          complaintId: complaint.complaintId,
+          title: complaint.title,
+          description: complaint.description,
+          location: complaint.location,
+          department: complaint.department,
+          status: complaint.status,
+        },
+        citizen.email
+      ).catch(chatErr => {
+        console.error('[CITIZEN COMPLAINT] Chat bootstrap error:', chatErr);
       });
     });
 

@@ -12,6 +12,8 @@
     "seed:admin": "npx tsx scripts/seed-admin.ts",
     "seed:dept-admin": "npx tsx scripts/seed-dept-admin.ts",
     "migrate:roles": "npx tsx scripts/migrate-roles.ts",
+    "migrate:phe:dry-run": "node scripts/migrate_phe_complaints.js --dry-run",
+    "migrate:phe": "node scripts/migrate_phe_complaints.js --execute",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",

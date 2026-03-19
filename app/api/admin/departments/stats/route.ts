@@ -5,7 +5,9 @@ import Complaint from '@/lib/models/Complaint';
 import User from '@/lib/models/User';
 import { verifyAccessToken } from '@/lib/auth';
 import { successResponse, errorResponse, getAccessTokenFromCookies } from '@/lib/api-utils';
-import { authorize, toAdminCtx, getRoleLevel } from '@/lib/rbac';
+import { authorize, toAdminCtx } from '@/lib/rbac';
+import { PHE_DEPARTMENT_IDS } from '@/lib/constants/phe';
+import { DEPARTMENTS } from '@/lib/constants';
 
 /**
  * GET /api/admin/departments/stats
@@ -24,11 +26,19 @@ export async function GET(req: NextRequest) {
 
     await connectDB();
 
-    // Fetch all departments
-    const departments = await Department.find({}).sort({ label: 1 }).lean();
+    // Fetch PHE departments from DB; fallback to constants if not seeded
+    const dbDepartments = await Department.find({ id: { $in: PHE_DEPARTMENT_IDS } }).sort({ label: 1 }).lean();
+    const departments = dbDepartments.length > 0
+      ? dbDepartments
+      : DEPARTMENTS.filter((d) => PHE_DEPARTMENT_IDS.includes(d.id));
 
     // Aggregate grievance counts by department
     const grievanceAgg = await Complaint.aggregate([
+      {
+        $match: {
+          department: { $in: PHE_DEPARTMENT_IDS },
+        },
+      },
       {
         $group: {
           _id: '$department',
@@ -50,8 +60,14 @@ export async function GET(req: NextRequest) {
 
     // Aggregate admin counts by department (all roles with departments assigned)
     const adminAgg = await User.aggregate([
-      { $match: { departments: { $exists: true, $ne: [] } } },
+      {
+        $match: {
+          departments: { $exists: true, $ne: [] },
+          $or: [{ isActive: true }, { isActive: { $exists: false } }],
+        },
+      },
       { $unwind: '$departments' },
+      { $match: { departments: { $in: PHE_DEPARTMENT_IDS } } },
       {
         $group: {
           _id: '$departments',
@@ -60,8 +76,11 @@ export async function GET(req: NextRequest) {
       },
     ]);
 
-    // Count admins at level ≤ 1 (head_admin, cabinet) — they have access to all departments
-    const globalAdminCount = await User.countDocuments({ role: { $in: ['head_admin', 'cabinet'] } });
+    // Count head_admin users globally (applied to each department)
+    const globalHeadAdminCount = await User.countDocuments({
+      role: 'head_admin',
+      $or: [{ isActive: true }, { isActive: { $exists: false } }],
+    });
 
     const adminMap: Record<string, number> = {};
     adminAgg.forEach((a) => {
@@ -82,7 +101,7 @@ export async function GET(req: NextRequest) {
         totalGrievances: stats.total,
         resolvedGrievances: stats.resolved,
         pendingGrievances: stats.pending,
-        assignedAdmins: deptAdmins + globalAdminCount, // global admins have access to all
+        assignedAdmins: deptAdmins + globalHeadAdminCount,
       };
     });
 

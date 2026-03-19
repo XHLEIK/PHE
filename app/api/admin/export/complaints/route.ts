@@ -4,6 +4,7 @@ import Complaint from '@/lib/models/Complaint';
 import { verifyAccessToken } from '@/lib/auth';
 import { errorResponse, getAccessTokenFromCookies } from '@/lib/api-utils';
 import { authorize, toAdminCtx, buildScopeQuery } from '@/lib/rbac';
+import { PHE_DEPARTMENT_IDS } from '@/lib/constants/phe';
 
 /**
  * GET /api/admin/export/complaints — Export complaints as CSV
@@ -33,7 +34,10 @@ export async function GET(req: NextRequest) {
 
     // Build filter with RBAC scope
     const scopeFilter = buildScopeQuery(adminCtx);
-    const filter: Record<string, unknown> = { ...scopeFilter };
+    const filter: Record<string, unknown> = {
+      ...scopeFilter,
+      department: { $in: PHE_DEPARTMENT_IDS },
+    };
     if (status) filter.status = status;
     if (priority) filter.priority = priority;
     if (department) filter.department = department;

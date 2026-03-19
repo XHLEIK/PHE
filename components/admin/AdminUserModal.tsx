@@ -9,6 +9,10 @@ interface LocationScope {
   country?: string;
   state?: string;
   district?: string;
+  circle?: string;
+  division?: string;
+  subDivision?: string;
+  section?: string;
   block?: string;
   area?: string;
 }
@@ -254,12 +258,12 @@ export default function AdminUserModal({
                 <div>
                   <label className="block text-sm text-slate-600 mb-2">Location Scope</label>
                   <div className="grid grid-cols-2 gap-2">
-                    {(['country', 'state', 'district', 'block', 'area'] as const).map(field => {
+                    {(['district', 'circle', 'division', 'subDivision'] as const).map(field => {
                       const isRequired = selectedMeta.requiredLocationFields.includes(field);
                       if (!isRequired) return null;
                       return (
                         <div key={field} className="space-y-0.5">
-                          <label className="text-[10px] font-medium text-slate-500 uppercase">{field}</label>
+                          <label className="text-[10px] font-medium text-slate-500 uppercase">{field === 'subDivision' ? 'Sub Division' : field}</label>
                           <input
                             type="text"
                             value={locationScope[field] || ''}

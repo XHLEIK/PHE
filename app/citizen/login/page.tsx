@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
+  Home,
   LockKeyhole,
   Mail,
   ShieldCheck,
@@ -195,6 +196,13 @@ export default function CitizenLoginPage() {
             </aside>
 
             <section className="p-6 md:p-8">
+              <Link
+                href="/"
+                className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-gov-blue-800 transition-colors hover:text-gov-blue-700"
+              >
+                <Home size={14} /> Back to Home
+              </Link>
+
               <button
                 onClick={() => { setView('login'); setOtp(['', '', '', '', '', '']); setOtpError(''); }}
                 className="mb-5 inline-flex items-center gap-1 text-sm text-slate-500 transition-colors hover:text-gov-blue-800"
@@ -302,6 +310,13 @@ export default function CitizenLoginPage() {
           </aside>
 
           <section className="p-6 md:p-8">
+            <Link
+              href="/"
+              className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-gov-blue-800 transition-colors hover:text-gov-blue-700"
+            >
+              <Home size={14} /> Back to Home
+            </Link>
+
             <h2 className="text-2xl font-bold tracking-tight text-gov-blue-900">Citizen Login</h2>
             <p className="mt-1 text-sm text-slate-600">Sign in to access your grievance dashboard.</p>
 

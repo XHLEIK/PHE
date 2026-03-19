@@ -5,7 +5,8 @@ import type { AdminRole } from './roles';
 import type { Permission } from './permissions';
 import type { LocationScope, ScopedResource, AdminScopeContext } from './scope';
 import { hasPermission } from './permissions';
-import { isInScope, isDepartmentInScope } from './scope';
+import { isInScope } from './scope';
+import { normalizeAdminRole } from './roles';
 import type { TokenPayload } from '@/lib/auth';
 
 export { type AdminScopeContext } from './scope';
@@ -16,7 +17,7 @@ export { type AdminScopeContext } from './scope';
  */
 export function toAdminCtx(payload: TokenPayload): AdminScopeContext {
   return {
-    role: payload.role as AdminRole,
+    role: normalizeAdminRole(String(payload.role || '')),
     departments: payload.departments ?? [],
     locationScope: payload.locationScope ?? {},
   };
@@ -75,16 +76,12 @@ export function buildScopeQuery(admin: AdminScopeContext): Record<string, unknow
 
   const filter: Record<string, unknown> = {};
 
-  // Location constraints
-  const loc = admin.locationScope;
-  if (loc.state) filter.state = loc.state;
-  if (loc.district) filter.district = loc.district;
-  if (loc.block) filter.block = loc.block;
-  if (loc.area) filter.area = loc.area;
-
   // Department constraints
   if (admin.departments.length > 0) {
     filter.department = { $in: admin.departments };
+  } else {
+    // non-head admins must be department-scoped
+    filter.department = { $in: ['__NO_DEPARTMENT_ACCESS__'] };
   }
 
   // Field staff can only see complaints assigned to them — handled at route level
@@ -109,6 +106,8 @@ export function buildAdminScopeQuery(admin: AdminScopeContext): Record<string, u
   // Department-scoped admins can only see users in their departments
   if (admin.departments.length > 0) {
     filter.departments = { $in: admin.departments };
+  } else {
+    filter.departments = { $in: ['__NO_DEPARTMENT_ACCESS__'] };
   }
 
   return filter;

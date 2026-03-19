@@ -128,4 +128,32 @@ export async function generateTrackingId(
   return `${prefix}-${seq}`;
 }
 
+// ---------------------------------------------------------------------------
+// PHE-specific tracking ID: AP-PHE-YYYY-NNNNNN
+// ---------------------------------------------------------------------------
+import { PHE_TRACKING_PREFIX } from '@/lib/constants/phe';
+
+/**
+ * Generate a PHE-specific tracking ID.
+ *
+ * Format: AP-PHE-YYYY-NNNNNN
+ * Example: AP-PHE-2026-000123
+ *
+ * Uses the same atomic counter pattern as generateTrackingId().
+ * Counter key: "AP-PHE-YYYY" (one sequence per year).
+ */
+export async function generatePheTrackingId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const prefix = `${PHE_TRACKING_PREFIX}-${year}`;
+
+  const counter = await Counter.findOneAndUpdate(
+    { _id: prefix },
+    { $inc: { seq: 1 } },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+
+  const seq = counter.seq.toString().padStart(6, '0');
+  return `${prefix}-${seq}`;
+}
+
 export default Counter;

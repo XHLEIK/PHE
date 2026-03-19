@@ -168,9 +168,20 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       }
     }
 
+    const resolvedRole = (parsed.data.role || targetUser.role) as AdminRole;
+    const normalizedIncomingScope = parsed.data.locationScope === undefined
+      ? undefined
+      : (resolvedRole === 'head_admin'
+          ? {}
+          : {
+              ...parsed.data.locationScope,
+              country: 'India',
+              state: 'Arunachal Pradesh',
+            });
+
     // Location scope containment on edit
     if (parsed.data.locationScope) {
-      const targetScopeCtx = { role: (parsed.data.role || targetUser.role) as AdminRole, departments: parsed.data.departments || targetUser.departments, locationScope: parsed.data.locationScope };
+      const targetScopeCtx = { role: resolvedRole, departments: parsed.data.departments || targetUser.departments, locationScope: normalizedIncomingScope || {} };
       if (!scopeContains(adminCtx, targetScopeCtx)) {
         return errorResponse('Target location scope must be within your jurisdiction', 403);
       }
@@ -191,9 +202,9 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       changes.departments = { from: targetUser.departments, to: parsed.data.departments };
       targetUser.departments = parsed.data.departments;
     }
-    if (parsed.data.locationScope !== undefined) {
-      changes.locationScope = { from: targetUser.locationScope, to: parsed.data.locationScope };
-      targetUser.locationScope = parsed.data.locationScope;
+    if (normalizedIncomingScope !== undefined) {
+      changes.locationScope = { from: targetUser.locationScope, to: normalizedIncomingScope };
+      targetUser.locationScope = normalizedIncomingScope;
     }
     if (parsed.data.phone !== undefined && parsed.data.phone !== targetUser.phone) {
       changes.phone = { from: targetUser.phone, to: parsed.data.phone };

@@ -16,14 +16,14 @@ export default function CitizenLayoutShell({ children }: { children: React.React
 
   if (isPublicPage) {
     return (
-      <div className="min-h-screen bg-[#faf7f0] font-sans">
+      <div className="min-h-screen bg-gradient-to-b from-gov-aqua-50 via-white to-gov-neutral-50 font-sans">
         {children}
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#faf7f0] font-sans">
+    <div className="min-h-screen bg-gradient-to-b from-gov-aqua-50/40 via-white to-gov-neutral-50 font-sans">
       {/* Desktop sidebar */}
       <CitizenSidebar />
 
@@ -33,9 +33,11 @@ export default function CitizenLayoutShell({ children }: { children: React.React
         <CitizenTopbar />
 
         {/* Page content */}
-        <main className="flex-1 p-4 md:p-6 pb-20 md:pb-6">
-          <Breadcrumbs />
-          {children}
+        <main className="flex-1 p-4 pb-20 md:p-6 md:pb-6">
+          <div className="mx-auto w-full max-w-6xl">
+            <Breadcrumbs />
+            {children}
+          </div>
         </main>
       </div>
 

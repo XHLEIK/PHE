@@ -70,7 +70,7 @@ const STANDARD_COMPLAINT_OPS: Permission[] = [
 export const ROLE_PERMISSIONS: Record<AdminRole, Permission[]> = {
   head_admin: ALL_PERMISSIONS,
 
-  cabinet: [
+  chief_engineer: [
     ...STANDARD_COMPLAINT_OPS,
     'user:create', 'user:update', 'user:view',
     'department:view', 'department:create', 'department:update',
@@ -81,7 +81,7 @@ export const ROLE_PERMISSIONS: Record<AdminRole, Permission[]> = {
     'notification:manage',
   ],
 
-  state_chief: [
+  superintending_engineer: [
     ...STANDARD_COMPLAINT_OPS,
     'user:create', 'user:update', 'user:view',
     'department:view', 'department:update',
@@ -92,7 +92,7 @@ export const ROLE_PERMISSIONS: Record<AdminRole, Permission[]> = {
     'notification:manage',
   ],
 
-  district_commissioner: [
+  executive_engineer: [
     ...STANDARD_COMPLAINT_OPS,
     'user:create', 'user:update', 'user:view',
     'department:view',
@@ -103,49 +103,10 @@ export const ROLE_PERMISSIONS: Record<AdminRole, Permission[]> = {
     'notification:manage',
   ],
 
-  department_director: [
-    ...STANDARD_COMPLAINT_OPS,
-    'user:create', 'user:update', 'user:view',
-    'department:view', 'department:update',
-    'analytics:view', 'analytics:export',
-    'map:view',
-    'settings:view',
-    'audit:view',
-    'notification:manage',
-  ],
-
-  department_head: [
-    ...STANDARD_COMPLAINT_OPS,
-    'user:create', 'user:update', 'user:view',
-    'department:view', 'department:update',
-    'analytics:view',
-    'map:view',
-    'settings:view',
-    'audit:view',
-    'notification:manage',
-  ],
-
-  senior_officer: [
+  assistant_engineer: [
     'complaint:view',
     'complaint:update',
     'complaint:assign',
-    'complaint:close',
-    'complaint:reassign',
-    'complaint:reveal-contact',
-    'complaint:reanalyze',
-    'call:initiate',
-    'user:create', 'user:view',
-    'department:view',
-    'analytics:view',
-    'map:view',
-    'notification:manage',
-  ],
-
-  officer: [
-    'complaint:view',
-    'complaint:update',
-    'complaint:assign',
-    'complaint:close',
     'complaint:reveal-contact',
     'call:initiate',
     'user:create', 'user:view',
@@ -155,7 +116,17 @@ export const ROLE_PERMISSIONS: Record<AdminRole, Permission[]> = {
     'notification:manage',
   ],
 
-  junior_officer: [
+  junior_engineer: [
+    'complaint:view',
+    'complaint:update',
+    'complaint:assign',
+    'complaint:reveal-contact',
+    'department:view',
+    'map:view',
+    'notification:manage',
+  ],
+
+  field_technician: [
     'complaint:view',
     'complaint:update',
     'department:view',
@@ -163,20 +134,13 @@ export const ROLE_PERMISSIONS: Record<AdminRole, Permission[]> = {
     'notification:manage',
   ],
 
-  field_staff: [
+  helpdesk: [
     'complaint:view',
-    'complaint:update', // progress updates only — enforced at route level
+    'complaint:update',
+    'complaint:assign',
     'department:view',
-    'map:view',
     'notification:manage',
-  ],
-
-  support_staff: [
-    'complaint:view',
-    'complaint:update', // limited — data entry only
-    'department:view',
     'map:view',
-    'notification:manage',
   ],
 };
 

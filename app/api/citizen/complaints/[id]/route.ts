@@ -6,6 +6,7 @@ import {
   getCitizenAccessTokenFromCookies,
 } from '@/lib/auth';
 import { successResponse, errorResponse } from '@/lib/api-utils';
+import { PHE_DEPARTMENT_IDS } from '@/lib/constants/phe';
 
 /**
  * GET /api/citizen/complaints/[id]
@@ -37,6 +38,7 @@ export async function GET(
       $and: [
         { $or: [{ complaintId: id }, { _id: id }] },
         { $or: [{ citizenId: payload.userId }, { submitterEmail: payload.email }] },
+        { department: { $in: PHE_DEPARTMENT_IDS } },
       ],
     }).lean();
 

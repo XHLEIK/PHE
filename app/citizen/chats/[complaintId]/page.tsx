@@ -112,35 +112,35 @@ export default function CitizenChatConversationPage() {
   let lastDate = '';
 
   return (
-    <div className="max-w-3xl mx-auto flex flex-col h-[calc(100vh-10rem)] md:h-[calc(100vh-8rem)]">
+    <div className="citizen-page-shell max-w-4xl flex flex-col h-[calc(100vh-10rem)] md:h-[calc(100vh-8rem)]">
       {/* Header */}
       <div className="flex items-center gap-3 mb-4 shrink-0">
         <Link
           href="/citizen/chats"
-          className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"
+          className="p-2 rounded-lg hover:bg-gov-aqua-50 text-slate-500 transition-colors"
         >
           <ArrowLeft size={20} />
         </Link>
-        <div className="w-9 h-9 bg-amber-100 text-amber-700 rounded-xl flex items-center justify-center">
+        <div className="w-9 h-9 bg-gov-aqua-50 text-gov-blue-700 border border-gov-aqua-200 rounded-xl flex items-center justify-center">
           <MessageSquare size={18} />
         </div>
         <div className="min-w-0">
-          <h1 className="text-lg font-bold text-slate-900 truncate">
+          <h1 className="text-xl font-bold text-slate-900 truncate">
             Chat — {complaintId}
           </h1>
-          <p className="text-xs text-slate-400">AI Grievance Assistant</p>
+          <p className="text-sm text-slate-400">AI Grievance Assistant</p>
         </div>
       </div>
 
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-1 mb-4">
+      <div className="flex-1 overflow-y-auto bg-white rounded-2xl border border-gov-blue-100 shadow-sm p-4 space-y-1 mb-4">
         {loading ? (
           <div className="flex items-center justify-center py-20 text-slate-400">
             <Loader2 className="animate-spin mr-2" size={20} />
             Loading messages…
           </div>
         ) : messages.length === 0 ? (
-          <div className="flex items-center justify-center py-20 text-slate-400 text-sm">
+          <div className="flex items-center justify-center py-20 text-slate-400 text-base">
             No messages yet. Start the conversation below.
           </div>
         ) : (
@@ -156,7 +156,7 @@ export default function CitizenChatConversationPage() {
               <React.Fragment key={msg._id}>
                 {showDate && (
                   <div className="text-center py-2">
-                    <span className="text-[10px] font-medium text-slate-400 bg-slate-50 px-3 py-1 rounded-full">
+                    <span className="text-xs font-medium text-slate-400 bg-slate-50 px-3 py-1 rounded-full">
                       {msgDate}
                     </span>
                   </div>
@@ -172,17 +172,17 @@ export default function CitizenChatConversationPage() {
                     </div>
                   )}
                   <div
-                    className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                    className={`max-w-[80%] rounded-2xl px-4 py-3 text-base leading-relaxed ${
                       msg.senderType === 'user'
-                        ? 'bg-amber-700 text-white rounded-br-md'
-                        : 'bg-slate-100 text-slate-800 rounded-bl-md'
+                        ? 'bg-gov-blue-800 text-white rounded-br-md'
+                        : 'bg-gov-aqua-50 text-slate-800 border border-gov-aqua-200 rounded-bl-md'
                     }`}
                   >
                     <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                     <p
-                      className={`text-[10px] mt-1 ${
+                      className={`text-xs mt-1 ${
                         msg.senderType === 'user'
-                          ? 'text-amber-200'
+                          ? 'text-blue-100'
                           : 'text-slate-400'
                       }`}
                     >
@@ -212,7 +212,7 @@ export default function CitizenChatConversationPage() {
       {/* Input area */}
       <form
         onSubmit={handleSend}
-        className="shrink-0 flex gap-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-3"
+        className="shrink-0 flex gap-2 bg-white rounded-2xl border border-gov-blue-100 shadow-sm p-3"
       >
         <input
           type="text"
@@ -221,12 +221,12 @@ export default function CitizenChatConversationPage() {
           placeholder="Type your message…"
           disabled={sending || loading}
           maxLength={2000}
-          className="flex-1 bg-[#faf7f0] rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors disabled:opacity-60"
+          className="flex-1 bg-gov-neutral-50 rounded-xl px-4 py-3 text-base text-slate-800 placeholder-slate-400 border border-gov-blue-200 focus:outline-none focus:ring-2 focus:ring-gov-aqua-700 transition-colors disabled:opacity-60"
         />
         <button
           type="submit"
           disabled={sending || !input.trim() || loading}
-          className="px-4 py-2.5 bg-amber-700 hover:bg-amber-800 text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 text-sm font-semibold"
+          className="px-4 py-3 bg-gov-blue-800 hover:bg-gov-blue-700 text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 text-base font-semibold"
         >
           {sending ? (
             <Loader2 size={16} className="animate-spin" />

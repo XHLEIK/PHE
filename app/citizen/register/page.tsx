@@ -8,6 +8,7 @@ import {
   Building2,
   Eye,
   EyeOff,
+  Home,
   LockKeyhole,
   Mail,
   Phone,
@@ -246,6 +247,13 @@ export default function CitizenRegisterPage() {
             </aside>
 
             <section className="p-6 md:p-8">
+              <Link
+                href="/"
+                className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-gov-blue-800 transition-colors hover:text-gov-blue-700"
+              >
+                <Home size={14} /> Back to Home
+              </Link>
+
               <button
                 onClick={() => setStep('register')}
                 className="mb-5 inline-flex items-center gap-1 text-sm text-slate-500 transition-colors hover:text-gov-blue-800"
@@ -355,6 +363,13 @@ export default function CitizenRegisterPage() {
           </aside>
 
           <section className="p-6 md:p-8">
+            <Link
+              href="/"
+              className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-gov-blue-800 transition-colors hover:text-gov-blue-700"
+            >
+              <Home size={14} /> Back to Home
+            </Link>
+
             <h2 className="text-2xl font-bold tracking-tight text-gov-blue-900">Create Account</h2>
             <p className="mt-1 text-sm text-slate-600">Register to submit and track grievances.</p>
 

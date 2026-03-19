@@ -1,5 +1,6 @@
 import CallToActionSection from '@/components/landing/CallToActionSection';
 import FeaturesSection from '@/components/landing/FeaturesSection';
+import FloatingAiChat from '@/components/landing/FloatingAiChat';
 import Footer from '@/components/landing/Footer';
 import HeroSection from '@/components/landing/HeroSection';
 import HowItWorksSection from '@/components/landing/HowItWorksSection';
@@ -16,6 +17,7 @@ export default function Home() {
       <WhyPlatformSection />
       <CallToActionSection />
       <Footer />
+      <FloatingAiChat />
     </main>
   );
 }

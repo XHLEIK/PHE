@@ -10,6 +10,7 @@ export {
   outranks,
   CREATION_MATRIX,
   canCreateRole,
+  normalizeAdminRole,
 } from './roles';
 
 export {

@@ -114,12 +114,12 @@ export default function CitizenNotificationsPage() {
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="citizen-page-shell max-w-3xl">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-            <Bell size={22} className="text-amber-700" />
+          <h1 className="text-xl font-bold text-gov-blue-900 flex items-center gap-2">
+            <Bell size={22} className="text-gov-blue-700" />
             Notifications
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">Stay updated on your grievance progress</p>
@@ -129,7 +129,7 @@ export default function CitizenNotificationsPage() {
           <button
             onClick={handleMarkAllRead}
             disabled={markingAll}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 disabled:opacity-60 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gov-blue-800 bg-gov-aqua-50 border border-gov-aqua-200 rounded-lg hover:bg-gov-aqua-100 disabled:opacity-60 transition-colors"
           >
             {markingAll ? <Loader2 size={12} className="animate-spin" /> : <CheckCheck size={12} />}
             Mark all read
@@ -167,13 +167,13 @@ export default function CitizenNotificationsPage() {
                 key={n._id}
                 className={`relative bg-white rounded-xl border p-4 transition-all ${
                   n.isRead
-                    ? 'border-slate-100 opacity-75'
-                    : 'border-amber-200 shadow-sm'
+                    ? 'border-gov-blue-100 opacity-75'
+                    : 'border-gov-aqua-200 shadow-sm'
                 }`}
               >
                 {/* Unread dot */}
                 {!n.isRead && (
-                  <span className="absolute top-4 right-4 w-2 h-2 bg-amber-500 rounded-full" />
+                  <span className="absolute top-4 right-4 w-2 h-2 bg-gov-blue-800 rounded-full" />
                 )}
 
                 <div className="flex items-start gap-3">
@@ -192,7 +192,7 @@ export default function CitizenNotificationsPage() {
                       {n.relatedComplaintTrackingId && (
                         <Link
                           href={`/citizen/complaints/${n.relatedComplaintId}`}
-                          className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 hover:text-amber-900 transition-colors"
+                          className="inline-flex items-center gap-1 text-[10px] font-semibold text-gov-blue-800 hover:text-gov-blue-700 transition-colors"
                         >
                           {n.relatedComplaintTrackingId} <ArrowRight size={10} />
                         </Link>
@@ -218,7 +218,7 @@ export default function CitizenNotificationsPage() {
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 rounded-lg disabled:opacity-40 hover:bg-slate-200 transition-colors"
+                className="px-3 py-1.5 text-xs font-medium text-slate-600 bg-gov-neutral-50 rounded-lg border border-gov-blue-100 disabled:opacity-40 hover:bg-gov-aqua-50 transition-colors"
               >
                 Previous
               </button>
@@ -228,7 +228,7 @@ export default function CitizenNotificationsPage() {
               <button
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
-                className="px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 rounded-lg disabled:opacity-40 hover:bg-slate-200 transition-colors"
+                className="px-3 py-1.5 text-xs font-medium text-slate-600 bg-gov-neutral-50 rounded-lg border border-gov-blue-100 disabled:opacity-40 hover:bg-gov-aqua-50 transition-colors"
               >
                 Next
               </button>

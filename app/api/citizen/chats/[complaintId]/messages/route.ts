@@ -1,5 +1,4 @@
 import { NextRequest } from 'next/server';
-import crypto from 'crypto';
 import connectDB from '@/lib/db';
 import ChatSession from '@/lib/models/ChatSession';
 import ChatMessage from '@/lib/models/ChatMessage';
@@ -7,6 +6,8 @@ import Complaint from '@/lib/models/Complaint';
 import { verifyAccessToken } from '@/lib/auth';
 import { getChatResponse, ChatHistoryEntry } from '@/lib/gemini-chat';
 import { successResponse, errorResponse, checkRateLimit, getClientIp } from '@/lib/api-utils';
+import { PHE_DEPARTMENT_IDS } from '@/lib/constants/phe';
+import { ensureComplaintChatBootstrap } from '@/lib/chat-bootstrap';
 
 /**
  * Helper: ensure a ChatSession exists for this citizen + complaint.
@@ -23,6 +24,7 @@ async function ensureSession(complaintId: string, email: string) {
     // Verify the complaint belongs to this citizen
     const complaint = await Complaint.findOne({
       complaintId,
+      department: { $in: PHE_DEPARTMENT_IDS },
       $or: [
         { submitterEmail: { $regex: new RegExp(`^${email}$`, 'i') } },
         { citizenId: { $exists: true } },
@@ -42,22 +44,20 @@ async function ensureSession(complaintId: string, email: string) {
       }
     }
 
-    // Auto-create session
-    const accessToken = crypto.randomBytes(32).toString('hex');
+    // Auto-create session + initial grievance/AI conversation
     try {
-      session = await ChatSession.create({
-        complaintId,
-        email: email.toLowerCase(),
-        title: complaint.title,
-        accessToken,
-      });
-
-      // Create the initial user message
-      await ChatMessage.create({
-        complaintId,
-        senderType: 'user',
-        content: `I have filed a grievance:\n\n**Title:** ${complaint.title}\n\n**Description:** ${complaint.description}\n\n**Location:** ${complaint.location || 'Not specified'}\n\nPlease help me with this issue.`,
-      });
+      await ensureComplaintChatBootstrap(
+        {
+          complaintId: complaint.complaintId,
+          title: complaint.title,
+          description: complaint.description,
+          location: complaint.location,
+          department: complaint.department,
+          status: complaint.status,
+        },
+        email
+      );
+      session = await ChatSession.findOne({ complaintId, email: email.toLowerCase(), isDeleted: false });
     } catch (createErr: unknown) {
       // Handle race condition (duplicate key)
       if (createErr && typeof createErr === 'object' && 'code' in createErr && (createErr as { code: number }).code === 11000) {
@@ -163,7 +163,10 @@ export async function POST(
     });
 
     // Get complaint details for context
-    const complaint = await Complaint.findOne({ complaintId }).lean();
+    const complaint = await Complaint.findOne({
+      complaintId,
+      department: { $in: PHE_DEPARTMENT_IDS },
+    }).lean();
     if (!complaint) {
       return errorResponse('Complaint not found', 404);
     }
@@ -188,7 +191,7 @@ export async function POST(
         title: complaint.title,
         description: complaint.description,
         location: complaint.location || '',
-        department: complaint.department || 'Unassigned',
+        department: complaint.department || 'complaint_cell',
         status: complaint.status,
         complaintId: complaint.complaintId,
       },

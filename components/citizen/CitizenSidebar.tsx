@@ -8,7 +8,7 @@ import {
   Search,
   User,
   LogOut,
-  Shield,
+  ShieldCheck,
   FileText,
   Bell,
   MessageSquare,
@@ -53,16 +53,16 @@ const CitizenSidebar = () => {
   };
 
   return (
-    <aside className="hidden md:flex w-64 h-screen bg-white border-r border-slate-200 flex-col fixed left-0 top-0 z-20 overflow-y-auto" role="complementary" aria-label="Citizen sidebar">
+    <aside className="hidden md:flex w-64 h-screen bg-gradient-to-b from-gov-blue-900 via-gov-blue-800 to-gov-blue-700 text-white border-r border-gov-blue-700/40 flex-col fixed left-0 top-0 z-20 overflow-y-auto" role="complementary" aria-label="Citizen sidebar">
       {/* Branding */}
-      <div className="p-6 border-b border-slate-100">
+      <div className="p-6 border-b border-white/15">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-amber-700 rounded-xl flex items-center justify-center shadow-lg shadow-amber-700/20">
-            <Shield size={22} className="text-white" />
+          <div className="w-10 h-10 rounded-xl bg-white/10 ring-1 ring-white/20 flex items-center justify-center">
+            <ShieldCheck size={22} className="text-gov-aqua-100" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-slate-900 tracking-tight leading-none">Samadhan AI</h1>
-            <p className="text-[10px] font-semibold text-amber-700 uppercase tracking-widest mt-0.5">
+            <h1 className="text-sm font-semibold text-white tracking-tight leading-none">Arunachal PHE Portal</h1>
+            <p className="text-[10px] font-semibold text-gov-aqua-200 uppercase tracking-widest mt-0.5">
               Citizen Portal
             </p>
           </div>
@@ -81,8 +81,8 @@ const CitizenSidebar = () => {
               aria-current={isActive ? 'page' : undefined}
               className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
                 isActive
-                  ? 'bg-amber-50 text-amber-800 border border-amber-200 shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  ? 'bg-white text-gov-blue-800 border border-white/60 shadow-lg'
+                  : 'text-blue-100 hover:bg-white/10 hover:text-white'
               }`}
             >
               <Icon size={20} strokeWidth={isActive ? 2.3 : 1.8} />
@@ -93,19 +93,19 @@ const CitizenSidebar = () => {
       </nav>
 
       {/* User section */}
-      <div className="p-4 border-t border-slate-100">
+      <div className="p-4 border-t border-white/15">
         <div className="flex items-center gap-3 px-3 py-2">
-          <div className="w-9 h-9 bg-amber-100 text-amber-700 rounded-full flex items-center justify-center text-sm font-bold">
+          <div className="w-9 h-9 bg-white/15 text-white rounded-full flex items-center justify-center text-sm font-bold">
             {citizenName.charAt(0).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-slate-800 truncate">{citizenName}</p>
-            <p className="text-[11px] text-slate-400 truncate">{citizenEmail}</p>
+            <p className="text-sm font-semibold text-white truncate">{citizenName}</p>
+            <p className="text-[11px] text-blue-100/90 truncate">{citizenEmail}</p>
           </div>
         </div>
         <button
           onClick={handleLogout}
-          className="mt-2 w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+          className="mt-2 w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm text-blue-100 hover:bg-red-500/20 hover:text-red-100 transition-colors"
         >
           <LogOut size={16} />
           Sign Out

@@ -89,38 +89,38 @@ export default function CitizenComplaintsListPage() {
     new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="citizen-page-shell max-w-5xl">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">My Grievances</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <h1 className="citizen-title text-2xl">My Grievances</h1>
+          <p className="citizen-subtitle mt-0.5">
             {total > 0 ? `${total} complaint${total !== 1 ? 's' : ''} filed` : 'All your submitted complaints'}
           </p>
         </div>
         <Link
           href="/citizen/complaints/new"
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-amber-700 hover:bg-amber-800 text-white text-sm font-bold rounded-xl shadow-md shadow-amber-700/10 transition-colors"
+          className="citizen-btn-primary"
         >
           <Plus size={16} /> New Complaint
         </Link>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-4 mb-4 shadow-sm">
+      <div className="citizen-card p-4 mb-4">
         <div className="flex items-center gap-2 justify-between">
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-900"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-gov-blue-900"
           >
             <Filter size={14} /> Filters
             {statusFilter !== 'all' && (
-              <span className="ml-1 w-5 h-5 flex items-center justify-center text-[10px] font-bold bg-amber-700 text-white rounded-full">1</span>
+              <span className="ml-1 w-5 h-5 flex items-center justify-center text-[10px] font-bold bg-gov-blue-800 text-white rounded-full">1</span>
             )}
           </button>
           <button
             onClick={() => setSortOrder(prev => prev === 'newest' ? 'oldest' : 'newest')}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-900"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-gov-blue-900"
           >
             <ArrowUpDown size={14} /> {sortOrder === 'newest' ? 'Newest first' : 'Oldest first'}
           </button>
@@ -134,8 +134,8 @@ export default function CitizenComplaintsListPage() {
                 onClick={() => setStatusFilter(opt.value)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                   statusFilter === opt.value
-                    ? 'bg-amber-700 text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    ? 'bg-gov-blue-800 text-white'
+                    : 'bg-gov-neutral-50 text-slate-600 hover:bg-gov-aqua-100'
                 }`}
               >
                 {opt.label}
@@ -151,9 +151,9 @@ export default function CitizenComplaintsListPage() {
           <Loader2 className="animate-spin mr-2" size={20} /> Loading…
         </div>
       ) : complaints.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-amber-50 border border-amber-200 rounded-2xl mb-4">
-            <FileText size={28} className="text-amber-700" />
+        <div className="citizen-card p-12 text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gov-aqua-50 border border-gov-aqua-200 rounded-2xl mb-4">
+            <FileText size={28} className="text-gov-blue-700" />
           </div>
           <h3 className="text-lg font-bold text-slate-900 mb-1">No grievances found</h3>
           <p className="text-sm text-slate-500 mb-6">
@@ -164,7 +164,7 @@ export default function CitizenComplaintsListPage() {
           {statusFilter === 'all' && (
             <Link
               href="/citizen/complaints/new"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-amber-700 hover:bg-amber-800 text-white text-sm font-bold rounded-xl shadow-md transition-colors"
+              className="citizen-btn-primary"
             >
               <Plus size={16} /> File a Complaint
             </Link>
@@ -176,7 +176,7 @@ export default function CitizenComplaintsListPage() {
             <Link
               key={c._id}
               href={`/citizen/complaints/${c._id}`}
-              className="block bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-amber-200 transition-all p-4 group"
+              className="block citizen-card hover:shadow-md hover:border-gov-aqua-200 transition-all p-4 group"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
@@ -208,7 +208,7 @@ export default function CitizenComplaintsListPage() {
                     )}
                   </div>
                 </div>
-                <ChevronRight size={18} className="text-slate-300 group-hover:text-amber-600 mt-2 shrink-0 transition-colors" />
+                <ChevronRight size={18} className="text-slate-300 group-hover:text-gov-blue-700 mt-2 shrink-0 transition-colors" />
               </div>
             </Link>
           ))}
@@ -221,7 +221,7 @@ export default function CitizenComplaintsListPage() {
           <button
             onClick={() => setPage(p => Math.max(1, p - 1))}
             disabled={page === 1}
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-white border border-gov-blue-100 text-slate-600 hover:bg-gov-aqua-50 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Previous
           </button>
@@ -229,7 +229,7 @@ export default function CitizenComplaintsListPage() {
           <button
             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
             disabled={page === totalPages}
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-white border border-gov-blue-100 text-slate-600 hover:bg-gov-aqua-50 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Next
           </button>
@@ -240,7 +240,7 @@ export default function CitizenComplaintsListPage() {
       <div className="mt-8 text-center">
         <Link
           href="/citizen/track"
-          className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-amber-700 transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-gov-blue-800 transition-colors"
         >
           <Search size={14} /> Track a complaint by ID
         </Link>

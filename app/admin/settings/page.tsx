@@ -21,6 +21,10 @@ interface LocationScope {
   country?: string;
   state?: string;
   district?: string;
+  circle?: string;
+  division?: string;
+  subDivision?: string;
+  section?: string;
   block?: string;
   area?: string;
 }
@@ -44,7 +48,7 @@ const SettingsPageInner = () => {
   const [isAdding, setIsAdding] = useState(false);
   const [admins, setAdmins] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentUserRole, setCurrentUserRole] = useState<string>('support_staff');
+  const [currentUserRole, setCurrentUserRole] = useState<string>('helpdesk');
   const [currentUserDepts, setCurrentUserDepts] = useState<string[]>([]);
   const [currentUserScope, setCurrentUserScope] = useState<LocationScope>({});
 
@@ -56,7 +60,7 @@ const SettingsPageInner = () => {
     temporaryPassword: '',
     role: '' as string,
     departments: [] as string[],
-    locationScope: { country: 'India', state: '', district: '', block: '', area: '' } as LocationScope,
+    locationScope: { country: 'India', state: 'Arunachal Pradesh', district: '', circle: '', division: '', subDivision: '' } as LocationScope,
   });
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
@@ -91,7 +95,7 @@ const SettingsPageInner = () => {
       const result = await getMe();
       if (result.success && result.data) {
         const user = result.data.user as Record<string, unknown>;
-        setCurrentUserRole((user.role as string) || 'support_staff');
+        setCurrentUserRole((user.role as string) || 'helpdesk');
         setCurrentUserDepts((user.departments as string[]) || []);
         setCurrentUserScope((user.locationScope as LocationScope) || {});
       }
@@ -108,7 +112,7 @@ const SettingsPageInner = () => {
           _id: (u._id as string) || '',
           name: (u.name as string) || '',
           email: (u.email as string) || '',
-          role: (u.role as string) || 'support_staff',
+          role: (u.role as string) || 'helpdesk',
           departments: (u.departments as string[]) || [],
           active: !!(u.lastLoginAt),
           isActive: (u.isActive as boolean) !== false,
@@ -186,7 +190,7 @@ const SettingsPageInner = () => {
       const result = await createAdminUser(payload as CreateAdminPayload);
       if (result.success) {
         setFormSuccess('Administrator created successfully. They must change password on first login.');
-        setNewAdmin({ name: '', email: '', phone: '', temporaryPassword: '', role: creatableRoles[0] || '', departments: [], locationScope: { country: 'India', state: '', district: '', block: '', area: '' } });
+        setNewAdmin({ name: '', email: '', phone: '', temporaryPassword: '', role: creatableRoles[0] || '', departments: [], locationScope: { country: 'India', state: 'Arunachal Pradesh', district: '', circle: '', division: '', subDivision: '' } });
         fetchAdmins();
       } else {
         setFormError(result.error || 'Failed to create administrator');
@@ -395,13 +399,13 @@ const SettingsPageInner = () => {
                             Location Scope
                           </label>
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 bg-white border border-slate-200 rounded-lg">
-                            {(['country', 'state', 'district', 'block', 'area'] as const).map(field => {
+                            {(['district', 'circle', 'division', 'subDivision'] as const).map(field => {
                               const isRequired = selectedRoleMeta.requiredLocationFields.includes(field);
                               if (!isRequired) return null;
                               return (
                                 <div key={field} className="space-y-1">
                                   <label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">
-                                    {field} <span className="text-rose-500">*</span>
+                                    {field === 'subDivision' ? 'Sub Division' : field} <span className="text-rose-500">*</span>
                                   </label>
                                   <input
                                     type="text"

@@ -10,6 +10,7 @@ import {
 } from '@/lib/api-utils';
 import { cached } from '@/lib/redis';
 import { toAdminCtx, authorize, buildScopeQuery, AuthorizationError } from '@/lib/rbac';
+import { PHE_DEPARTMENT_IDS } from '@/lib/constants/phe';
 
 /**
  * GET /api/admin/analytics — Enhanced analytics with date-range, trends, SLA metrics
@@ -70,6 +71,7 @@ export async function GET(req: NextRequest) {
     const scopeFilter = buildScopeQuery(adminCtx);
     const baseFilter: Record<string, unknown> = {
       ...scopeFilter,
+      department: { $in: PHE_DEPARTMENT_IDS },
       createdAt: { $gte: startDate, $lte: endDate },
     };
 

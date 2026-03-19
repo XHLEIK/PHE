@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// National Role Hierarchy — Canonical role definitions
+// PHE & Water Supply Role Hierarchy — Canonical role definitions
 // ---------------------------------------------------------------------------
 
 /**
@@ -10,16 +10,13 @@
  */
 export const ADMIN_ROLES = [
   'head_admin',
-  'cabinet',
-  'state_chief',
-  'district_commissioner',
-  'department_director',
-  'department_head',
-  'senior_officer',
-  'officer',
-  'junior_officer',
-  'field_staff',
-  'support_staff',
+  'chief_engineer',
+  'superintending_engineer',
+  'executive_engineer',
+  'assistant_engineer',
+  'junior_engineer',
+  'field_technician',
+  'helpdesk',
 ] as const;
 
 export type AdminRole = (typeof ADMIN_ROLES)[number];
@@ -32,98 +29,74 @@ export interface RoleMeta {
   label: string;
   level: number;              // 0 = highest authority
   requiresDepartment: boolean;
-  departmentOptional: boolean; // true only for support_staff
-  requiredLocationFields: ('country' | 'state' | 'district' | 'block' | 'area')[];
+  departmentOptional: boolean;
+  requiredLocationFields: ('country' | 'state' | 'district' | 'circle' | 'division' | 'subDivision' | 'section' | 'block' | 'area')[];
 }
 
 export const ROLE_META: Record<AdminRole, RoleMeta> = {
   head_admin: {
     slug: 'head_admin',
-    label: 'Head Admin / National Authority',
+    label: 'Head Admin',
     level: 0,
     requiresDepartment: false,
     departmentOptional: false,
     requiredLocationFields: [],
   },
-  cabinet: {
-    slug: 'cabinet',
-    label: 'Cabinet / Executive Authority',
+  chief_engineer: {
+    slug: 'chief_engineer',
+    label: 'Chief Engineer',
     level: 1,
-    requiresDepartment: false,
+    requiresDepartment: true,
     departmentOptional: false,
-    requiredLocationFields: ['country'],
+    requiredLocationFields: [],
   },
-  state_chief: {
-    slug: 'state_chief',
-    label: 'State Chief Administrator',
+  superintending_engineer: {
+    slug: 'superintending_engineer',
+    label: 'Superintending Engineer',
     level: 2,
-    requiresDepartment: false,
+    requiresDepartment: true,
     departmentOptional: false,
-    requiredLocationFields: ['country', 'state'],
+    requiredLocationFields: ['district', 'circle'],
   },
-  district_commissioner: {
-    slug: 'district_commissioner',
-    label: 'District Commissioner / Collector',
+  executive_engineer: {
+    slug: 'executive_engineer',
+    label: 'Executive Engineer',
     level: 3,
-    requiresDepartment: false,
+    requiresDepartment: true,
     departmentOptional: false,
-    requiredLocationFields: ['country', 'state', 'district'],
+    requiredLocationFields: ['district', 'circle', 'division'],
   },
-  department_director: {
-    slug: 'department_director',
-    label: 'Department Director',
+  assistant_engineer: {
+    slug: 'assistant_engineer',
+    label: 'Assistant Engineer',
     level: 4,
     requiresDepartment: true,
     departmentOptional: false,
-    requiredLocationFields: ['country', 'state'],
+    requiredLocationFields: ['district', 'circle', 'division', 'subDivision'],
   },
-  department_head: {
-    slug: 'department_head',
-    label: 'Department Head',
+  junior_engineer: {
+    slug: 'junior_engineer',
+    label: 'Junior Engineer',
     level: 5,
     requiresDepartment: true,
     departmentOptional: false,
-    requiredLocationFields: ['country', 'state', 'district'],
+    requiredLocationFields: ['district', 'circle', 'division', 'subDivision'],
   },
-  senior_officer: {
-    slug: 'senior_officer',
-    label: 'Senior Officer',
+  field_technician: {
+    slug: 'field_technician',
+    label: 'Field Technician',
     level: 6,
     requiresDepartment: true,
     departmentOptional: false,
-    requiredLocationFields: ['country', 'state', 'district', 'block'],
+    requiredLocationFields: ['district', 'circle', 'division', 'subDivision'],
   },
-  officer: {
-    slug: 'officer',
-    label: 'Officer',
+  helpdesk: {
+    slug: 'helpdesk',
+    label: 'Helpdesk / Citizen Support',
     level: 7,
     requiresDepartment: true,
     departmentOptional: false,
-    requiredLocationFields: ['country', 'state', 'district', 'block'],
-  },
-  junior_officer: {
-    slug: 'junior_officer',
-    label: 'Junior Officer',
-    level: 8,
-    requiresDepartment: true,
-    departmentOptional: false,
-    requiredLocationFields: ['country', 'state', 'district', 'block', 'area'],
-  },
-  field_staff: {
-    slug: 'field_staff',
-    label: 'Field Staff',
-    level: 9,
-    requiresDepartment: true,
-    departmentOptional: false,
-    requiredLocationFields: ['country', 'state', 'district', 'block', 'area'],
-  },
-  support_staff: {
-    slug: 'support_staff',
-    label: 'Support Staff',
-    level: 10,
-    requiresDepartment: false,
-    departmentOptional: true,
-    requiredLocationFields: ['country', 'state', 'district'],
+    requiredLocationFields: ['district'],
   },
 };
 
@@ -145,17 +118,14 @@ export function outranks(roleA: AdminRole, roleB: AdminRole): boolean {
 // Role creation matrix — who can create whom
 // ---------------------------------------------------------------------------
 export const CREATION_MATRIX: Record<AdminRole, AdminRole[]> = {
-  head_admin:              ['head_admin', 'cabinet', 'state_chief', 'district_commissioner', 'department_director', 'department_head', 'senior_officer', 'officer', 'junior_officer', 'field_staff', 'support_staff'],
-  cabinet:                 ['state_chief', 'district_commissioner', 'department_director'],
-  state_chief:             ['district_commissioner', 'department_director', 'department_head', 'senior_officer', 'officer', 'junior_officer', 'field_staff', 'support_staff'],
-  district_commissioner:   ['department_head', 'senior_officer', 'officer', 'junior_officer', 'field_staff', 'support_staff'],
-  department_director:     ['department_head', 'senior_officer', 'officer', 'junior_officer', 'field_staff', 'support_staff'],
-  department_head:         ['senior_officer', 'officer', 'junior_officer', 'field_staff', 'support_staff'],
-  senior_officer:          ['officer', 'junior_officer', 'field_staff'],
-  officer:                 ['junior_officer', 'field_staff'],
-  junior_officer:          [],
-  field_staff:             [],
-  support_staff:           [],
+  head_admin: ['head_admin', 'chief_engineer', 'superintending_engineer', 'executive_engineer', 'assistant_engineer', 'junior_engineer', 'field_technician', 'helpdesk'],
+  chief_engineer: ['superintending_engineer', 'executive_engineer', 'assistant_engineer', 'junior_engineer', 'field_technician', 'helpdesk'],
+  superintending_engineer: ['executive_engineer', 'assistant_engineer', 'junior_engineer', 'field_technician', 'helpdesk'],
+  executive_engineer: ['assistant_engineer', 'junior_engineer', 'field_technician', 'helpdesk'],
+  assistant_engineer: ['junior_engineer', 'field_technician', 'helpdesk'],
+  junior_engineer: ['field_technician', 'helpdesk'],
+  field_technician: [],
+  helpdesk: [],
 };
 
 /**
@@ -163,4 +133,34 @@ export const CREATION_MATRIX: Record<AdminRole, AdminRole[]> = {
  */
 export function canCreateRole(creatorRole: AdminRole, targetRole: AdminRole): boolean {
   return CREATION_MATRIX[creatorRole]?.includes(targetRole) ?? false;
+}
+
+/**
+ * Normalize legacy or unknown role strings into current role taxonomy.
+ */
+export function normalizeAdminRole(role: string): AdminRole {
+  const normalized = role?.trim().toLowerCase() || '';
+  const mapped: Record<string, AdminRole> = {
+    head_admin: 'head_admin',
+    chief_engineer: 'chief_engineer',
+    superintending_engineer: 'superintending_engineer',
+    executive_engineer: 'executive_engineer',
+    assistant_engineer: 'assistant_engineer',
+    junior_engineer: 'junior_engineer',
+    field_technician: 'field_technician',
+    helpdesk: 'helpdesk',
+    citizen_support: 'helpdesk',
+    senior_officer: 'executive_engineer',
+    officer: 'assistant_engineer',
+    junior_officer: 'junior_engineer',
+    cabinet: 'chief_engineer',
+    state_chief: 'chief_engineer',
+    district_commissioner: 'superintending_engineer',
+    department_director: 'executive_engineer',
+    department_head: 'executive_engineer',
+    support_staff: 'field_technician',
+    field_staff: 'assistant_engineer',
+  };
+
+  return mapped[normalized] ?? 'helpdesk';
 }

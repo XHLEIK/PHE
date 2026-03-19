@@ -9,7 +9,8 @@ export interface IEscalationEntry {
 }
 
 export interface IComplaint extends Document {
-  complaintId: string; // Human-readable ID e.g. "GRV-AR-PAP-2026-000001"
+  complaintId: string; // Tracking ID e.g. "AP-PHE-2026-000001"
+  legacyIds: string[]; // Previous tracking IDs preserved for traceability
   citizenId: mongoose.Types.ObjectId | null; // Linked citizen account (null for anonymous)
   title: string;
   description: string;
@@ -259,6 +260,11 @@ const ComplaintSchema = new Schema<IComplaint>(
       type: Boolean,
       default: false,
     },
+    // Legacy tracking IDs (preserved during migration)
+    legacyIds: {
+      type: [String],
+      default: [],
+    },
     // Legacy fields
     aiAnalyzed: {
       type: Boolean,
@@ -288,6 +294,10 @@ ComplaintSchema.index({ citizenId: 1, createdAt: -1 });
 ComplaintSchema.index({ submitterEmail: 1, createdAt: -1 });
 // Priority + status for admin dashboard
 ComplaintSchema.index({ priority: 1, status: 1 });
+// PHE: compound index for department-scoped tracking ID lookups
+ComplaintSchema.index({ department: 1, complaintId: 1 }, { unique: true });
+// Legacy ID lookup for backward compatibility
+ComplaintSchema.index({ legacyIds: 1 }, { sparse: true });
 
 const Complaint: Model<IComplaint> =
   mongoose.models.Complaint || mongoose.model<IComplaint>('Complaint', ComplaintSchema);

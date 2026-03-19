@@ -16,6 +16,7 @@ import {
   citizenLoginSchema,
   citizenVerifyOtpSchema,
   citizenSendOtpSchema,
+  trackComplaintSchema,
 } from '@/lib/validations';
 
 // ---------------------------------------------------------------------------
@@ -98,13 +99,13 @@ describe('createAdminSchema', () => {
       email: 'new@gov.in',
       name: 'Test Admin',
       role: 'department_head',
-      departments: ['Revenue'],
+      departments: ['water_supply_operations'],
       temporaryPassword: 'TempPassword1!AA',
     });
     expect(result.success).toBe(true);
   });
 
-  it('defaults role to staff', () => {
+  it('defaults role to citizen_support', () => {
     const result = createAdminSchema.safeParse({
       email: 'staff@gov.in',
       name: 'Staff User',
@@ -112,7 +113,7 @@ describe('createAdminSchema', () => {
     });
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.role).toBe('support_staff');
+      expect(result.data.role).toBe('citizen_support');
     }
   });
 
@@ -318,5 +319,20 @@ describe('citizenVerifyOtpSchema', () => {
     expect(citizenVerifyOtpSchema.safeParse({ email: 'test@test.com', code: '12345' }).success).toBe(false);
     expect(citizenVerifyOtpSchema.safeParse({ email: 'test@test.com', code: '1234567' }).success).toBe(false);
     expect(citizenVerifyOtpSchema.safeParse({ email: 'test@test.com', code: 'abcdef' }).success).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// trackComplaintSchema
+// ---------------------------------------------------------------------------
+describe('trackComplaintSchema', () => {
+  it('accepts AP-PHE tracking format', () => {
+    const result = trackComplaintSchema.safeParse({ complaintId: 'AP-PHE-2026-000001' });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts legacy GRV tracking format for backward compatibility', () => {
+    const result = trackComplaintSchema.safeParse({ complaintId: 'GRV-AR-PAP-2026-000001' });
+    expect(result.success).toBe(true);
   });
 });

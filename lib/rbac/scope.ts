@@ -11,6 +11,10 @@ export interface LocationScope {
   country?: string;
   state?: string;
   district?: string;
+  circle?: string;
+  division?: string;
+  subDivision?: string;
+  section?: string;
   block?: string;
   area?: string;
 }
@@ -22,6 +26,10 @@ export interface ScopedResource {
   department?: string | null;
   state?: string | null;
   district?: string | null;
+  circle?: string | null;
+  division?: string | null;
+  subDivision?: string | null;
+  section?: string | null;
   block?: string | null;
   area?: string | null;
 }
@@ -36,7 +44,17 @@ export interface AdminScopeContext {
 }
 
 // Ordered location fields from broadest to narrowest
-const LOCATION_FIELDS: (keyof LocationScope)[] = ['country', 'state', 'district', 'block', 'area'];
+const LOCATION_FIELDS: (keyof LocationScope)[] = [
+  'country',
+  'state',
+  'district',
+  'circle',
+  'division',
+  'subDivision',
+  'section',
+  'block',
+  'area',
+];
 
 /**
  * Check if an admin's location scope covers a resource's location.
@@ -75,11 +93,11 @@ export function isLocationInScope(
  *
  * Rules:
  * - Head Admin: always true (no department restriction).
- * - Roles without department requirement (cabinet, state_chief, district_commissioner):
+ * - Roles without department requirement (e.g., helpdesk when departments[] is empty):
  *   if departments[] is empty → can access all departments.
  *   if departments[] is non-empty → limited to those.
  * - Roles requiring department: must have the resource's department in their list.
- * - Support staff with empty departments: can access all departments (support actions only).
+ * - Optional-department roles with empty departments: can access all departments.
  */
 export function isDepartmentInScope(
   admin: AdminScopeContext,
@@ -90,15 +108,9 @@ export function isDepartmentInScope(
   // If resource has no department, it's accessible to all
   if (!resourceDepartment) return true;
 
-  const meta = ROLE_META[admin.role];
+  if (admin.departments.length === 0) return false;
 
-  // Roles without department requirement with empty departments[] → all departments
-  if (!meta.requiresDepartment && admin.departments.length === 0) return true;
-
-  // Support staff with optional department and empty list → all departments
-  if (meta.departmentOptional && admin.departments.length === 0) return true;
-
-  // Otherwise, resource department must be in admin's departments list
+  // Resource department must be in admin's departments list
   return admin.departments.some(
     d => d.toLowerCase() === resourceDepartment.toLowerCase()
   );
@@ -112,8 +124,20 @@ export function isInScope(
   resource: ScopedResource
 ): boolean {
   if (admin.role === 'head_admin') return true;
-  return isLocationInScope(admin.locationScope, resource) &&
-         isDepartmentInScope(admin, resource.department);
+
+  // Primary access model for this deployment: department-based visibility.
+  // Non-head admins with department assignments can access complaints/resources
+  // in those departments regardless of finer location tags.
+  const deptOk = isDepartmentInScope(admin, resource.department);
+  if (!deptOk) return false;
+
+  // If a non-head admin has no department mapping (shouldn't happen),
+  // fall back to strict location checks.
+  if (admin.departments.length === 0) {
+    return isLocationInScope(admin.locationScope, resource);
+  }
+
+  return true;
 }
 
 /**
@@ -147,7 +171,7 @@ export function scopeContains(
     // Creator is dept-scoped but target has no dept restriction → target is broader
     const targetMeta = ROLE_META[target.role];
     if (targetMeta.requiresDepartment) return false; // target needs dept but has none → invalid anyway
-    // Non-dept roles like state_chief with no departments are OK if location matches
+    // Non-dept/optional-dept roles with no departments are OK if location matches
   }
 
   return true;

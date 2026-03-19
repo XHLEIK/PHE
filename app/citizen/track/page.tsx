@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import {
   Search, Loader2, Clock, CheckCircle2, AlertTriangle,
-  Shield, MapPin, CalendarDays, Building2, FileText,
+  ShieldCheck, MapPin, CalendarDays, Building2, FileText,
 } from 'lucide-react';
 import { trackComplaint } from '@/lib/citizen-api-client';
 
@@ -70,20 +70,20 @@ export default function TrackComplaintPage() {
   const st = result ? (STATUS_MAP[result.status] ?? STATUS_MAP.pending) : null;
 
   return (
-    <div className="max-w-lg mx-auto py-4 font-sans">
+    <div className="citizen-page-shell max-w-3xl py-4 font-sans">
       <div className="w-full z-10">
         {/* Branding */}
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-amber-700 rounded-2xl shadow-lg shadow-amber-700/20 mb-4">
-            <Shield size={28} className="text-white" />
+          <div className="inline-flex items-center justify-center w-14 h-14 bg-gov-blue-800 rounded-2xl shadow-lg shadow-gov-blue-800/20 mb-4">
+            <ShieldCheck size={28} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Track Complaint</h1>
-          <p className="text-sm text-slate-500 mt-1">Enter your reference number to check status</p>
+          <h1 className="citizen-title text-2xl">Track Complaint</h1>
+          <p className="citizen-subtitle mt-1">Enter your reference number to check status</p>
         </div>
 
         {/* Search card */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden">
-          <div className="h-1 w-full bg-gradient-to-r from-amber-700 via-yellow-400 to-amber-700" />
+        <div className="citizen-card shadow-xl overflow-hidden">
+          <div className="h-1 w-full bg-gradient-to-r from-gov-blue-800 via-gov-aqua-700 to-gov-blue-700" />
 
           <form onSubmit={handleSearch} className="p-6">
             <div className="flex gap-2">
@@ -92,12 +92,12 @@ export default function TrackComplaintPage() {
                 value={complaintId}
                 onChange={e => { setComplaintId(e.target.value); setError(''); }}
                 placeholder="e.g. GRV-AR-PAP-2026-000001"
-                className="flex-1 rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 bg-[#faf7f0] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors font-mono"
+                className="flex-1 rounded-lg border border-gov-blue-200 px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 bg-gov-neutral-50 focus:outline-none focus:ring-2 focus:ring-gov-aqua-700 transition-colors font-mono"
               />
               <button
                 type="submit"
                 disabled={isSearching || !complaintId.trim()}
-                className="shrink-0 px-5 py-2.5 bg-amber-700 hover:bg-amber-800 text-white text-sm font-bold rounded-xl disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                className="shrink-0 px-5 py-2.5 bg-gov-blue-800 hover:bg-gov-blue-700 text-white text-sm font-bold rounded-xl disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
               >
                 {isSearching ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
                 Track
@@ -114,8 +114,8 @@ export default function TrackComplaintPage() {
 
         {/* Result card */}
         {result && st && (
-          <div className="mt-4 bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-2">
-            <div className="h-1 w-full bg-gradient-to-r from-amber-700 via-yellow-400 to-amber-700" />
+          <div className="mt-4 bg-white rounded-2xl border border-gov-blue-100 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-2">
+            <div className="h-1 w-full bg-gradient-to-r from-gov-blue-800 via-gov-aqua-700 to-gov-blue-700" />
 
             <div className="p-6">
               {/* Status badge */}
@@ -147,9 +147,9 @@ export default function TrackComplaintPage() {
 
               {/* AI Summary */}
               {result.aiAnalysis?.summary && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-700 mb-1">AI Summary</p>
-                  <p className="text-sm text-amber-900 leading-relaxed">{result.aiAnalysis.summary}</p>
+                <div className="bg-gov-aqua-50 border border-gov-aqua-200 rounded-xl p-3 mb-4">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gov-blue-700 mb-1">AI Summary</p>
+                  <p className="text-sm text-gov-blue-900 leading-relaxed">{result.aiAnalysis.summary}</p>
                 </div>
               )}
 
@@ -182,7 +182,7 @@ export default function TrackComplaintPage() {
               <div className="pt-4 border-t border-slate-100 mt-4">
                 <Link
                   href={`/citizen/complaints/${result.complaintId}`}
-                  className="inline-flex items-center gap-2 w-full justify-center px-4 py-2.5 bg-amber-700 hover:bg-amber-800 text-white text-sm font-bold rounded-xl transition-colors"
+                  className="inline-flex items-center gap-2 w-full justify-center px-4 py-2.5 bg-gov-blue-800 hover:bg-gov-blue-700 text-white text-sm font-bold rounded-xl transition-colors"
                 >
                   <FileText size={14} />
                   View Full Details &amp; Timeline
@@ -201,14 +201,14 @@ export default function TrackComplaintPage() {
         <div className="mt-6 text-center space-y-2">
           <Link
             href="/citizen/complaints"
-            className="inline-flex items-center gap-1 text-sm text-amber-700 hover:text-amber-800 font-medium"
+            className="inline-flex items-center gap-1 text-sm text-gov-blue-800 hover:text-gov-blue-700 font-medium"
           >
             Back to Dashboard
           </Link>
         </div>
 
         <p className="mt-6 text-center text-[11px] text-slate-400">
-          Samadhan AI — National Grievance Redressal Platform
+          Arunachal Pradesh PHE &amp; Water Supply Department Citizen Services
         </p>
       </div>
     </div>

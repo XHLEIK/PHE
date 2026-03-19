@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { User, Save, Loader2, CheckCircle2 } from 'lucide-react';
+import { User, Save, Loader2, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { getCitizenMe, updateCitizenProfile, type CitizenProfileUpdate } from '@/lib/citizen-api-client';
 
 interface Profile {
@@ -85,7 +85,7 @@ export default function CitizenProfilePage() {
   };
 
   const inputCls =
-    'w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 bg-[#faf7f0] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors';
+    'w-full rounded-lg border border-gov-blue-200 px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 bg-gov-neutral-50 focus:outline-none focus:ring-2 focus:ring-gov-aqua-700 transition-colors';
 
   const readOnlyCls =
     'w-full rounded-lg border border-slate-100 px-3.5 py-2.5 text-sm text-slate-500 bg-slate-50 cursor-not-allowed';
@@ -110,13 +110,13 @@ export default function CitizenProfilePage() {
     new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
 
   return (
-    <div className="max-w-xl mx-auto">
+    <div className="citizen-page-shell max-w-2xl">
       {/* Profile header */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden mb-6">
-        <div className="h-1 w-full bg-gradient-to-r from-amber-700 via-yellow-400 to-amber-700" />
+      <div className="bg-white rounded-2xl border border-gov-blue-100 shadow-xl overflow-hidden mb-6">
+        <div className="h-1 w-full bg-gradient-to-r from-gov-blue-800 via-gov-aqua-700 to-gov-blue-700" />
         <div className="p-6 flex items-center gap-4">
-          <div className="shrink-0 w-16 h-16 bg-amber-100 border-2 border-amber-300 rounded-2xl flex items-center justify-center">
-            <User size={28} className="text-amber-700" />
+          <div className="shrink-0 w-16 h-16 bg-gov-aqua-50 border-2 border-gov-aqua-200 rounded-2xl flex items-center justify-center">
+            <User size={28} className="text-gov-blue-800" />
           </div>
           <div>
             <h1 className="text-xl font-bold text-slate-900">{profile.name}</h1>
@@ -126,17 +126,17 @@ export default function CitizenProfilePage() {
             )}
           </div>
           {profile.isVerified && (
-            <span className="ml-auto inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 rounded-full text-[10px] font-semibold border border-green-200">
-              <CheckCircle2 size={10} /> Verified
+            <span className="ml-auto inline-flex items-center gap-1 px-2.5 py-1 bg-gov-aqua-50 text-gov-blue-800 rounded-full text-[10px] font-semibold border border-gov-aqua-200">
+              <ShieldCheck size={10} /> Verified
             </span>
           )}
         </div>
       </div>
 
       {/* Edit form */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-gov-blue-100 shadow-sm overflow-hidden">
         <div className="p-6">
-          <h2 className="text-sm font-bold text-slate-900 mb-4">Edit Profile</h2>
+          <h2 className="text-sm font-bold text-gov-blue-900 mb-4">Edit Profile</h2>
 
           <form onSubmit={handleSave} className="space-y-4">
             {/* Name */}
@@ -204,11 +204,11 @@ export default function CitizenProfilePage() {
             <button
               type="submit"
               disabled={isSaving}
-              className="w-full py-3 rounded-xl font-bold text-white text-sm bg-amber-700 hover:bg-amber-800 disabled:opacity-60 disabled:cursor-not-allowed transition-colors shadow-md shadow-amber-700/10 flex items-center justify-center gap-2"
+              className="w-full py-3 rounded-xl font-bold text-white text-sm bg-gov-blue-800 hover:bg-gov-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors shadow-md shadow-gov-blue-800/10 flex items-center justify-center gap-2"
             >
               {isSaving ? (
                 <>
-                  <Loader2 size={16} className="animate-spin" /> Saving…
+                  <Loader2 size={16} className="animate-spin" /> Saving...
                 </>
               ) : (
                 <>

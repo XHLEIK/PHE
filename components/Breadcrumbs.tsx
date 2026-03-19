@@ -40,8 +40,8 @@ export default function Breadcrumbs() {
   }));
 
   return (
-    <nav aria-label="Breadcrumb" className="flex items-center gap-1 text-xs text-slate-500 mb-4 flex-wrap">
-      <Link href="/" className="hover:text-amber-700 transition-colors" aria-label="Home">
+    <nav aria-label="Breadcrumb" className="mb-4 flex flex-wrap items-center gap-1 text-xs text-slate-500">
+      <Link href="/" className="transition-colors hover:text-gov-blue-800" aria-label="Home">
         <Home size={14} />
       </Link>
       {crumbs.map((crumb) => (
@@ -52,7 +52,7 @@ export default function Breadcrumbs() {
               {crumb.label}
             </span>
           ) : (
-            <Link href={crumb.href} className="hover:text-amber-700 transition-colors">
+            <Link href={crumb.href} className="transition-colors hover:text-gov-blue-800">
               {crumb.label}
             </Link>
           )}

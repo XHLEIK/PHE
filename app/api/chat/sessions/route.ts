@@ -1,10 +1,9 @@
 import { NextRequest } from 'next/server';
-import crypto from 'crypto';
 import connectDB from '@/lib/db';
 import ChatSession from '@/lib/models/ChatSession';
-import ChatMessage from '@/lib/models/ChatMessage';
 import Complaint from '@/lib/models/Complaint';
 import { successResponse, errorResponse, checkRateLimit, getClientIp } from '@/lib/api-utils';
+import { ensureComplaintChatBootstrap } from '@/lib/chat-bootstrap';
 
 /**
  * POST /api/chat/sessions — Create a new chat session after complaint submission
@@ -48,46 +47,23 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Generate a secure access token
-    const accessToken = crypto.randomBytes(32).toString('hex');
-
-    let session;
-    try {
-      session = await ChatSession.create({
-        complaintId,
-        email: email.toLowerCase(),
+    const boot = await ensureComplaintChatBootstrap(
+      {
+        complaintId: complaint.complaintId,
         title: complaint.title,
-        accessToken,
-      });
-    } catch (createErr: unknown) {
-      // Handle race condition: another request already created the session
-      if (createErr && typeof createErr === 'object' && 'code' in createErr && (createErr as { code: number }).code === 11000) {
-        const existing = await ChatSession.findOne({ complaintId });
-        if (existing) {
-          return successResponse({
-            sessionId: existing._id.toString(),
-            complaintId: existing.complaintId,
-            accessToken: existing.accessToken,
-          });
-        }
-      }
-      throw createErr;
-    }
-
-    // Create the first AI-generated welcome message using the complaint description
-    const firstMessage = `I have filed a grievance:\n\n**Title:** ${complaint.title}\n\n**Description:** ${complaint.description}\n\n**Location:** ${complaint.location || 'Not specified'}\n\nPlease help me with this issue.`;
-
-    await ChatMessage.create({
-      complaintId,
-      senderType: 'user',
-      content: firstMessage,
-    });
+        description: complaint.description,
+        location: complaint.location,
+        department: complaint.department,
+        status: complaint.status,
+      },
+      email
+    );
 
     return successResponse(
       {
-        sessionId: session._id.toString(),
-        complaintId: session.complaintId,
-        accessToken: session.accessToken,
+        sessionId: boot.sessionId,
+        complaintId,
+        accessToken: boot.accessToken,
       },
       undefined,
       201

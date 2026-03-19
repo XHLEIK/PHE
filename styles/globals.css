@@ -65,6 +65,38 @@ body {
   .auth-page-enter {
     animation: authPageEnter 320ms ease-out;
   }
+
+  .citizen-page-shell {
+    @apply max-w-5xl mx-auto auth-page-enter;
+  }
+
+  .citizen-card {
+    @apply rounded-2xl border border-gov-blue-100 bg-white shadow-sm;
+  }
+
+  .citizen-card-soft {
+    @apply rounded-xl border border-gov-blue-100 bg-gov-neutral-50;
+  }
+
+  .citizen-title {
+    @apply text-2xl md:text-3xl font-bold tracking-tight text-gov-blue-900;
+  }
+
+  .citizen-subtitle {
+    @apply text-sm text-slate-600;
+  }
+
+  .citizen-btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gov-blue-800 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gov-blue-700;
+  }
+
+  .citizen-btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-gov-blue-200 bg-white px-4 py-2.5 text-sm font-semibold text-gov-blue-800 transition hover:bg-gov-aqua-50;
+  }
+
+  .citizen-input {
+    @apply w-full rounded-lg border border-gov-blue-200 bg-gov-neutral-50 px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 transition focus:outline-none focus:ring-2 focus:ring-gov-aqua-700;
+  }
 }
 
 @keyframes authPageEnter {

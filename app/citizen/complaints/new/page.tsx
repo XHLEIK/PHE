@@ -170,15 +170,15 @@ export default function NewCitizenComplaintPage() {
   };
 
   const inputCls = (err?: string) =>
-    `w-full rounded-lg border px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 bg-[#faf7f0] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors ${
-      err ? 'border-red-400 bg-red-50' : 'border-slate-200'
+    `w-full rounded-lg border px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 bg-gov-neutral-50 focus:outline-none focus:ring-2 focus:ring-gov-aqua-700 transition-colors ${
+      err ? 'border-red-400 bg-red-50' : 'border-gov-blue-200'
     }`;
 
   // ── Success screen ──────────────────────────────────────────────────────
   if (result?.complaintId) {
     return (
-      <div className="max-w-lg mx-auto">
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xl p-8 text-center">
+      <div className="citizen-page-shell max-w-lg">
+        <div className="citizen-card p-8 text-center shadow-xl">
           <div className="h-1 w-full bg-gradient-to-r from-green-500 via-emerald-400 to-green-500 -mt-8 -mx-8 mb-6 rounded-t-2xl" style={{ width: 'calc(100% + 4rem)' }} />
           <div className="inline-flex items-center justify-center w-16 h-16 bg-green-50 border border-green-200 rounded-2xl mb-4">
             <CheckCircle2 size={32} className="text-green-600" />
@@ -188,9 +188,9 @@ export default function NewCitizenComplaintPage() {
             Your complaint has been received and is being routed to the concerned department.
           </p>
 
-          <div className="bg-amber-50 border border-amber-200 rounded-xl px-6 py-4 mb-6 inline-block">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-700 mb-1">Reference Number</p>
-            <p className="text-2xl font-mono font-bold text-amber-800 tracking-wider">{result.complaintId}</p>
+          <div className="bg-gov-aqua-50 border border-gov-aqua-200 rounded-xl px-6 py-4 mb-6 inline-block">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-gov-blue-700 mb-1">Reference Number</p>
+            <p className="text-2xl font-mono font-bold text-gov-blue-900 tracking-wider">{result.complaintId}</p>
           </div>
 
           <p className="text-xs text-slate-400 mb-6">Save this number to track your complaint at any time.</p>
@@ -208,7 +208,7 @@ export default function NewCitizenComplaintPage() {
                 </p>
                 <Link
                   href={`/citizen/chats/${encodeURIComponent(result.complaintId!)}`}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg shadow-sm transition-colors"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-gov-blue-800 hover:bg-gov-blue-700 text-white text-sm font-bold rounded-lg shadow-sm transition-colors"
                 >
                   <MessageSquare size={15} />
                   Chat with AI Assistant
@@ -220,7 +220,7 @@ export default function NewCitizenComplaintPage() {
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
               href="/citizen/complaints"
-              className="px-5 py-2.5 bg-amber-700 hover:bg-amber-800 text-white text-sm font-bold rounded-xl shadow-md transition-colors"
+              className="citizen-btn-primary"
             >
               Go to My Grievances
             </Link>
@@ -230,7 +230,7 @@ export default function NewCitizenComplaintPage() {
                 setForm({ title: '', description: '', location: '', state: profile?.state || '', district: profile?.district || '', callConsent: true });
                 setCoordinates(null);
               }}
-              className="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 text-sm font-medium rounded-xl hover:bg-slate-50 transition-colors"
+              className="citizen-btn-secondary"
             >
               Submit Another
             </button>
@@ -242,17 +242,17 @@ export default function NewCitizenComplaintPage() {
 
   // ── Form ────────────────────────────────────────────────────────────────
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="citizen-page-shell max-w-3xl">
       {/* Back */}
       <Link
         href="/citizen/complaints"
-        className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-600 mb-4 transition-colors"
+        className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-gov-blue-800 mb-4 transition-colors"
       >
         <ArrowLeft size={14} /> Back to Grievances
       </Link>
 
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden">
-        <div className="h-1 w-full bg-gradient-to-r from-amber-700 via-yellow-400 to-amber-700" />
+      <div className="citizen-card overflow-hidden shadow-xl">
+        <div className="h-1 w-full bg-gradient-to-r from-gov-blue-800 via-gov-aqua-700 to-gov-blue-700" />
 
         <div className="p-6">
           <div className="flex items-center justify-between mb-1">
@@ -325,7 +325,7 @@ export default function NewCitizenComplaintPage() {
                   type="button"
                   onClick={handleUseLocation}
                   disabled={isGeolocating}
-                  className="shrink-0 px-3 py-2.5 bg-amber-50 border border-amber-200 text-amber-700 rounded-lg hover:bg-amber-100 disabled:opacity-60 transition-colors"
+                  className="shrink-0 px-3 py-2.5 bg-gov-aqua-50 border border-gov-aqua-200 text-gov-blue-800 rounded-lg hover:bg-gov-aqua-100 disabled:opacity-60 transition-colors"
                   title="Use my location"
                 >
                   {isGeolocating ? <Loader2 size={16} className="animate-spin" /> : <Locate size={16} />}
@@ -367,7 +367,7 @@ export default function NewCitizenComplaintPage() {
                 type="checkbox"
                 checked={form.callConsent}
                 onChange={handleCheckbox}
-                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-amber-700 focus:ring-amber-500"
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-gov-blue-800 focus:ring-gov-aqua-700"
               />
               <span className="text-sm text-slate-600">
                 I consent to receiving a follow-up call from the AI assistant regarding this complaint.
@@ -385,12 +385,12 @@ export default function NewCitizenComplaintPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-3 rounded-xl font-bold text-white text-sm bg-amber-700 hover:bg-amber-800 disabled:opacity-60 disabled:cursor-not-allowed transition-colors shadow-md shadow-amber-700/10 flex items-center justify-center gap-2"
+              className="citizen-btn-primary w-full disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {isSubmitting ? (
                 <>
                   <Loader2 size={16} className="animate-spin" />
-                  Submitting…
+                  Submitting...
                 </>
               ) : (
                 <>

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { REVEAL_REASONS, CLOSURE_REASONS } from './constants';
 import { ADMIN_ROLES } from './rbac/roles';
+import { PHE_DEPARTMENT_IDS, ARUNACHAL_DISTRICTS, PHE_TRACKING_REGEX } from './constants/phe';
 
 // ---------------------------------------------------------------------------
 // Auth schemas
@@ -48,17 +49,21 @@ export const createAdminSchema = z.object({
     .regex(/^[a-zA-Z\s_\-.]+$/, 'Name contains invalid characters'),
   role: z
     .enum(ADMIN_ROLES as unknown as [string, ...string[]])
-    .default('support_staff'),
+    .default('helpdesk'),
   departments: z
-    .array(z.string().trim().min(1))
+    .array(z.enum(PHE_DEPARTMENT_IDS as [string, ...string[]]))
     .default([]),
   locationScope: z.object({
     country: z.string().trim().default('IN'),
-    state: z.string().trim().default(''),
-    district: z.string().trim().default(''),
+    state: z.string().trim().default('Arunachal Pradesh'),
+    district: z.string().trim().max(100).default(''),
+    circle: z.string().trim().default(''),
+    division: z.string().trim().default(''),
+    subDivision: z.string().trim().default(''),
+    section: z.string().trim().default(''),
     block: z.string().trim().default(''),
     area: z.string().trim().default(''),
-  }).default({ country: 'IN', state: '', district: '', block: '', area: '' }),
+  }).default({ country: 'IN', state: 'Arunachal Pradesh', district: '', circle: '', division: '', subDivision: '', section: '', block: '', area: '' }),
   temporaryPassword: z
     .string()
     .min(12, 'Temporary password must be at least 12 characters')
@@ -155,7 +160,7 @@ export const updateComplaintSchema = z.object({
     .enum(['pending', 'triage', 'in_progress', 'resolved', 'closed', 'escalated'])
     .optional(),
   priority: z.enum(VALID_PRIORITIES).optional(),
-  department: z.string().trim().max(100).optional(),
+  department: z.enum(PHE_DEPARTMENT_IDS as [string, ...string[]]).optional(),
   assignedTo: z.string().email().nullable().optional(),
   // Reason required for terminal/escalation transitions \u2014 enforced at route level
   reason: z.string().trim().min(1).max(200).optional(),
@@ -187,7 +192,7 @@ export const complaintQuerySchema = z.object({
   priority: z.enum(VALID_PRIORITIES).optional(),
   sort: z.enum(['createdAt', '-createdAt', 'priority', '-priority', 'status', '-status']).default('-createdAt'),
   search: z.string().trim().max(200).optional(),
-  department: z.string().trim().optional(),
+  department: z.enum(PHE_DEPARTMENT_IDS as [string, ...string[]]).optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -290,7 +295,10 @@ export const trackComplaintSchema = z.object({
     .string()
     .trim()
     .min(1, 'Complaint ID is required')
-    .regex(/^GRV-/, 'Invalid complaint tracking ID format'),
+    .refine(
+      (id) => PHE_TRACKING_REGEX.test(id) || /^GRV-[A-Z]{2}-[A-Z]{3}-\d{4}-\d{6}$/.test(id),
+      'Invalid complaint tracking ID format'
+    ),
 });
 
 export const citizenComplaintQuerySchema = z.object({
@@ -330,10 +338,7 @@ export const assignComplaintSchema = z.object({
 
 /** Escalate complaint to another department */
 export const escalateComplaintSchema = z.object({
-  toDepartment: z
-    .string()
-    .trim()
-    .min(1, 'Target department is required'),
+  toDepartment: z.enum(PHE_DEPARTMENT_IDS as [string, ...string[]]),
   reason: z
     .string()
     .trim()
@@ -350,7 +355,7 @@ export const bulkUpdateSchema = z.object({
   updates: z.object({
     status: z.enum(['pending', 'triage', 'in_progress', 'resolved', 'closed', 'escalated']).optional(),
     priority: z.enum(['low', 'medium', 'high', 'critical']).optional(),
-    department: z.string().trim().max(100).optional(),
+    department: z.enum(PHE_DEPARTMENT_IDS as [string, ...string[]]).optional(),
     assignedTo: z.string().email().nullable().optional(),
   }).refine((data) => Object.values(data).some(v => v !== undefined), {
     message: 'At least one update field required',
@@ -372,11 +377,15 @@ export const updateAdminUserSchema = z.object({
     .regex(/^[a-zA-Z\s_\-.]+$/, 'Name contains invalid characters')
     .optional(),
   role: z.enum(ADMIN_ROLES as unknown as [string, ...string[]]).optional(),
-  departments: z.array(z.string().trim().min(1)).optional(),
+  departments: z.array(z.enum(PHE_DEPARTMENT_IDS as [string, ...string[]])).optional(),
   locationScope: z.object({
     country: z.string().trim().optional(),
     state: z.string().trim().optional(),
-    district: z.string().trim().optional(),
+    district: z.string().trim().max(100).optional(),
+    circle: z.string().trim().optional(),
+    division: z.string().trim().optional(),
+    subDivision: z.string().trim().optional(),
+    section: z.string().trim().optional(),
     block: z.string().trim().optional(),
     area: z.string().trim().optional(),
   }).optional(),
@@ -401,7 +410,7 @@ export const notificationQuerySchema = z.object({
 export const analyticsQuerySchema = z.object({
   dateFrom: z.coerce.date().optional(),
   dateTo: z.coerce.date().optional(),
-  department: z.string().trim().optional(),
+  department: z.enum(PHE_DEPARTMENT_IDS as [string, ...string[]]).optional(),
   period: z.enum(['7d', '30d', '90d', 'custom']).default('30d'),
 });
 
@@ -422,7 +431,7 @@ export const enhancedComplaintQuerySchema = z.object({
   priority: z.enum(['low', 'medium', 'high', 'critical']).optional(),
   sort: z.enum(['createdAt', '-createdAt', 'priority', '-priority', 'status', '-status', 'slaDeadline', '-slaDeadline']).default('-createdAt'),
   search: z.string().trim().max(200).optional(),
-  department: z.string().trim().optional(),
+  department: z.enum(PHE_DEPARTMENT_IDS as [string, ...string[]]).optional(),
   assignedTo: z.string().trim().optional(),
   slaBreached: z.enum(['true', 'false']).optional(),
   dateFrom: z.coerce.date().optional(),

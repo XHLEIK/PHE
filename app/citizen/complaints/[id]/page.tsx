@@ -120,7 +120,7 @@ export default function CitizenComplaintDetailPage() {
         <p className="text-sm text-slate-500 mb-4">{error || 'This complaint could not be found.'}</p>
         <Link
           href="/citizen/complaints"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-700 hover:text-amber-800"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-gov-blue-800 hover:text-gov-blue-700"
         >
           <ArrowLeft size={14} /> Back to Grievances
         </Link>
@@ -131,17 +131,17 @@ export default function CitizenComplaintDetailPage() {
   const st = STATUS_LABEL[complaint.status] ?? STATUS_LABEL.pending;
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="citizen-page-shell max-w-4xl">
       <Link
         href="/citizen/complaints"
-        className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-600 mb-4 transition-colors"
+        className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-gov-blue-800 mb-4 transition-colors"
       >
         <ArrowLeft size={14} /> Back to Grievances
       </Link>
 
       {/* Main card */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden">
-        <div className="h-1 w-full bg-gradient-to-r from-amber-700 via-yellow-400 to-amber-700" />
+      <div className="bg-white rounded-2xl border border-gov-blue-100 shadow-xl overflow-hidden">
+        <div className="h-1 w-full bg-gradient-to-r from-gov-blue-800 via-gov-aqua-700 to-gov-blue-700" />
 
         <div className="p-6">
           {/* Status + ID */}
@@ -178,7 +178,7 @@ export default function CitizenComplaintDetailPage() {
           </div>
 
           {/* Description */}
-          <div className="bg-[#faf7f0] rounded-xl border border-slate-100 p-4 mb-6">
+          <div className="bg-gov-neutral-50 rounded-xl border border-gov-blue-100 p-4 mb-6">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Description</h3>
             <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{complaint.description}</p>
           </div>
@@ -192,15 +192,15 @@ export default function CitizenComplaintDetailPage() {
 
           {/* AI analysis */}
           {complaint.aiAnalysis?.summary && (
-            <div className="bg-amber-50 rounded-xl border border-amber-200 p-4 mb-6">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-amber-700 mb-2 flex items-center gap-1">
+            <div className="bg-gov-aqua-50 rounded-xl border border-gov-aqua-200 p-4 mb-6">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-gov-blue-700 mb-2 flex items-center gap-1">
                 <Tag size={12} /> AI Analysis
               </h3>
-              <p className="text-sm text-amber-900 leading-relaxed mb-3">{complaint.aiAnalysis.summary}</p>
+              <p className="text-sm text-gov-blue-900 leading-relaxed mb-3">{complaint.aiAnalysis.summary}</p>
               {complaint.aiAnalysis.suggestedActions && complaint.aiAnalysis.suggestedActions.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-600 mb-1">Suggested Actions</p>
-                  <ul className="list-disc list-inside text-sm text-amber-800 space-y-0.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gov-blue-700 mb-1">Suggested Actions</p>
+                  <ul className="list-disc list-inside text-sm text-gov-blue-900 space-y-0.5">
                     {complaint.aiAnalysis.suggestedActions.map((a, i) => (
                       <li key={i}>{a}</li>
                     ))}

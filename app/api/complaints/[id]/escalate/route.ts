@@ -74,14 +74,15 @@ export async function POST(req: NextRequest, context: RouteContext) {
 
     // Verify target department exists
     const targetDept = await Department.findOne({
-      name: parsed.data.toDepartment,
-      isActive: true,
+      id: parsed.data.toDepartment,
+      active: true,
     }).lean();
     if (!targetDept) {
       return errorResponse('Target department not found or inactive', 404);
     }
 
     const fromDepartment = complaint.department;
+    const fromStatus = complaint.status;
 
     // Push escalation entry
     complaint.escalationHistory.push({
@@ -132,7 +133,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
       targetId: id,
       changes: {
         department: { from: fromDepartment, to: parsed.data.toDepartment },
-        status: { from: 'in_progress', to: 'escalated' },
+        status: { from: fromStatus, to: 'escalated' },
       },
       metadata: {
         reason: parsed.data.reason,
