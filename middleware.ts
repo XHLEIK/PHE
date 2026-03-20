@@ -20,36 +20,60 @@ import { NextRequest, NextResponse } from 'next/server';
 // Security headers applied to every response
 // ---------------------------------------------------------------------------
 
-// Build CSP — allow self, Cloudinary images, Google Fonts, LiveKit WebSocket, Resend
-const CSP_DIRECTIVES = [
+// Static CSP directives (connect-src is built dynamically per-request)
+const CSP_STATIC_DIRECTIVES = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval'",          // Next.js requires inline scripts
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
   "img-src 'self' data: blob: https://res.cloudinary.com",
   "media-src 'self' blob: https://res.cloudinary.com",
-  "connect-src 'self' https://generativelanguage.googleapis.com wss://*.livekit.cloud https://*.livekit.cloud https://api.resend.com https://*.upstash.io",
+  // connect-src is built dynamically — see buildCsp()
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
   "object-src 'none'",
-].join('; ');
+];
 
-const SECURITY_HEADERS: Record<string, string> = {
-  'Content-Security-Policy': CSP_DIRECTIVES,
-  'X-Content-Type-Options': 'nosniff',
-  'X-Frame-Options': 'DENY',
-  'X-XSS-Protection': '1; mode=block',
-  'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Permissions-Policy': 'camera=(), microphone=(self), geolocation=(self)',
-  'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
-};
+/**
+ * Build Content-Security-Policy with dynamic connect-src.
+ * Includes the request's own origin so API calls always work,
+ * regardless of whether the app runs on localhost or a deployed IP/domain.
+ */
+function buildCsp(requestOrigin: string): string {
+  const connectSrc = [
+    "'self'",
+    requestOrigin,
+    'https://generativelanguage.googleapis.com',
+    'wss://*.livekit.cloud',
+    'https://*.livekit.cloud',
+    'https://api.resend.com',
+    'https://*.upstash.io',
+  ].join(' ');
+
+  return [...CSP_STATIC_DIRECTIVES, `connect-src ${connectSrc}`].join('; ');
+}
+
+function buildSecurityHeaders(requestOrigin: string): Record<string, string> {
+  return {
+    'Content-Security-Policy': buildCsp(requestOrigin),
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'X-XSS-Protection': '1; mode=block',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'camera=(), microphone=(self), geolocation=(self)',
+    'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
+  };
+}
 
 // ---------------------------------------------------------------------------
 // CORS configuration
 // ---------------------------------------------------------------------------
-function getCorsOrigin(): string {
-  return process.env.CORS_ALLOWED_ORIGINS?.split(',')[0]?.trim() || 'http://localhost:3000';
+function getCorsOrigin(req: NextRequest): string {
+  // Use configured origins if set, otherwise fall back to the request's own origin
+  const configured = process.env.CORS_ALLOWED_ORIGINS?.split(',')[0]?.trim();
+  if (configured && configured !== 'http://localhost:3000') return configured;
+  return req.nextUrl.origin;
 }
 
 // ---------------------------------------------------------------------------
@@ -58,10 +82,12 @@ function getCorsOrigin(): string {
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const requestStart = Date.now();
+  const requestOrigin = req.nextUrl.origin;
+  const securityHeaders = buildSecurityHeaders(requestOrigin);
 
   // ── CORS preflight for API routes ────────────────────────────────────────
   if (pathname.startsWith('/api/') && req.method === 'OPTIONS') {
-    const origin = getCorsOrigin();
+    const origin = getCorsOrigin(req);
     return new NextResponse(null, {
       status: 204,
       headers: {
@@ -70,7 +96,7 @@ export function middleware(req: NextRequest) {
         'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Correlation-Id',
         'Access-Control-Allow-Credentials': 'true',
         'Access-Control-Max-Age': '86400',
-        ...SECURITY_HEADERS,
+        ...securityHeaders,
       },
     });
   }
@@ -100,7 +126,7 @@ export function middleware(req: NextRequest) {
         { success: false, error: 'Authentication required', correlationId: 'middleware' },
         {
           status: 401,
-          headers: SECURITY_HEADERS,
+          headers: securityHeaders,
         }
       );
     }
@@ -142,7 +168,7 @@ export function middleware(req: NextRequest) {
         { success: false, error: 'Authentication required', correlationId: 'middleware' },
         {
           status: 401,
-          headers: SECURITY_HEADERS,
+          headers: securityHeaders,
         }
       );
     }
@@ -150,13 +176,13 @@ export function middleware(req: NextRequest) {
 
   // ── Apply security headers to all other responses ───────────────────────
   const response = NextResponse.next();
-  for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
+  for (const [key, value] of Object.entries(securityHeaders)) {
     response.headers.set(key, value);
   }
 
   // Add CORS headers to API responses
   if (pathname.startsWith('/api/')) {
-    const origin = getCorsOrigin();
+    const origin = getCorsOrigin(req);
     response.headers.set('Access-Control-Allow-Origin', origin);
     response.headers.set('Access-Control-Allow-Credentials', 'true');
 

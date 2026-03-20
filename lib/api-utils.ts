@@ -118,7 +118,7 @@ export function getRefreshTokenFromCookies(req: NextRequest): string | null {
  * CORS headers for API routes.
  */
 export function getCorsHeaders(): Record<string, string> {
-  const origins = process.env.CORS_ALLOWED_ORIGINS || 'http://localhost:3000';
+  const origins = process.env.CORS_ALLOWED_ORIGINS || '*';
   return {
     'Access-Control-Allow-Origin': origins.split(',')[0].trim(),
     'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
