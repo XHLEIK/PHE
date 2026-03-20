@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "../styles/globals.css";
-import { ToastProvider } from "@/components/Toast";
+import { Providers } from "@/components/Providers";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -88,7 +88,7 @@ export default function RootLayout({
           Skip to main content
         </a>
         <div id="main-content">
-          <ToastProvider>{children}</ToastProvider>
+          <Providers>{children}</Providers>
         </div>
         <noscript>
           <div style={{ padding: '2rem', textAlign: 'center', fontFamily: 'sans-serif' }}>
