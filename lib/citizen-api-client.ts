@@ -7,7 +7,9 @@
  * - Falls back to /citizen/login on refresh failure
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || '';
+// We don't want absolute URLs when calling from the client side because it breaks on production domains.
+// Next.js fetch() automatically acts relative to the current origin on the client.
+const API_BASE = '';
 
 interface ApiResponse<T = unknown> {
   success: boolean;
