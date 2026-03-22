@@ -1,7 +1,7 @@
 import connectDB from '@/lib/db';
 import ConsumerPendingBill from '@/lib/models/ConsumerPendingBill';
+import { fetchWithGeminiKeyRotation } from './gemini-keys';
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 const TIMEOUT_MS = 25_000;
@@ -96,11 +96,30 @@ function findConsumerIds(input: string): string[] {
 }
 
 function isDivisionOfficeAddressQuery(input: string): boolean {
-  const q = input.toLowerCase();
-  return (
-    (q.includes('division') || q.includes('devision')) &&
-    (q.includes('office') || q.includes('address') || q.includes('location'))
-  );
+  const q = input.toLowerCase().trim();
+
+  // 1. Negative intents (action words unrelated to finding location)
+  const negativePattern = /(file.*complaint|call|who is|transfer|officer.*name)/i;
+  if (negativePattern.test(q)) {
+    return false;
+  }
+
+  // 2. Entity Context (Are they talking about the department/office?)
+  const entityPattern = /(division|office|sub-division|circle|department|phe|executive engineer)/i;
+
+  // 3. Location/Address Intent (English & Hinglish)
+  const locationPattern = /(address|location|where|kaha|kahan|kidhar|directions|route|reach)/i;
+
+  if (entityPattern.test(q) && locationPattern.test(q)) {
+    return true;
+  }
+
+  // 4. Very short ambiguous strings (Edge cases)
+  if (q.length < 25 && (q.includes('address') || q.includes('location') || q.includes('office kaha'))) {
+    return true;
+  }
+
+  return false;
 }
 
 function isConsumerIdOnlyMessage(input: string): boolean {
@@ -119,14 +138,32 @@ function hadPendingAmountIntent(history: PublicChatHistoryEntry[]): boolean {
 }
 
 function isPendingAmountQuery(input: string): boolean {
-  const q = input.toLowerCase();
-  return (
-    q.includes('pending amount') ||
-    q.includes('pending bill') ||
-    q.includes('due amount') ||
-    q.includes('bill due') ||
-    (q.includes('pending') && q.includes('amount'))
-  );
+  const q = input.toLowerCase().trim();
+
+  // 1. Negative intents (how to pay, download receipt, generate bill, etc.)
+  const negativePattern = /(how to pay|how do i pay|download|invoice|generate|receipt|can i pay now|show payment options)/i;
+  if (negativePattern.test(q)) {
+    return false;
+  }
+
+  // 2. Direct Consumer ID Match (Always overrides)
+  if (findConsumerIds(input).length > 0) {
+    return true;
+  }
+
+  // 3. Positive Broad Intents (English, Hinglish, Formal, Informal)
+  const positivePattern = /(pending|due|bill|amount|outstanding|balance|status|owe|liability|unpaid|left to pay|clear.*payment|settle|kitna|baki|bakaya|dena hai|ho gaya ya nahi)/i;
+  
+  if (positivePattern.test(q)) {
+    return true;
+  }
+
+  // 4. Edge cases (Extremely short queries with question marks)
+  if (q.length < 15 && (q.includes('bill?') || q.includes('dues?') || q.includes('payment?') || q.includes('balance?'))) {
+    return true;
+  }
+
+  return false;
 }
 
 async function getPendingAmountReply(input: string): Promise<string | null> {
@@ -187,44 +224,37 @@ async function getPendingAmountReply(input: string): Promise<string | null> {
     }
   }
 
-  lines.push('For payment support, keep your consumer ID and last receipt ready and contact 1800-345-3601 if needed.');
+  lines.push('For payment support, keep your consumer ID and last receipt ready and contact 1800-345-3601 if needed.\n\nWant to proceed to pay?');
   return lines.join('\n');
 }
 
 async function callGemini(contents: GeminiChatHistoryEntry[]): Promise<{ reply: string; error?: string }> {
-  if (!GEMINI_API_KEY) {
-    return {
-      reply: '',
-      error: 'AI assistant is not configured. Please set GEMINI_API_KEY and try again.',
-    };
-  }
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
   try {
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal: controller.signal,
-      body: JSON.stringify({
-        system_instruction: {
-          parts: [{ text: buildSystemInstruction() }],
-        },
-        contents,
-        generationConfig: {
-          temperature: 0.3,
-          topP: 0.9,
-          maxOutputTokens: 700,
-        },
-        safetySettings: [
-          { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-          { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-          { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-          { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-        ],
-      }),
-    });
+    const response = await fetchWithGeminiKeyRotation(
+      (key) => `${GEMINI_API_URL}?key=${key}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system_instruction: {
+            parts: [{ text: buildSystemInstruction() }],
+          },
+          contents,
+          generationConfig: {
+            temperature: 0.3,
+            topP: 0.9,
+            maxOutputTokens: 700,
+          },
+          safetySettings: [
+            { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+            { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+          ],
+        }),
+      },
+      TIMEOUT_MS
+    );
 
     if (!response.ok) {
       const errText = await response.text().catch(() => 'Unknown error');
@@ -247,13 +277,14 @@ async function callGemini(contents: GeminiChatHistoryEntry[]): Promise<{ reply: 
 
     return { reply: sanitizeAssistantReply(reply) };
   } catch (err: unknown) {
+    if (err instanceof Error && err.message.includes('No GEMINI_API_KEY')) {
+      return { reply: '', error: 'AI assistant is not configured. Please set GEMINI_API_KEY and try again.' };
+    }
     if (err instanceof Error && err.name === 'AbortError') {
       return { reply: '', error: 'AI response timed out. Please try again.' };
     }
     console.error('[PUBLIC PHE CHAT ERROR]', err);
     return { reply: '', error: 'Unexpected AI error. Please try again.' };
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
@@ -261,20 +292,56 @@ export async function getPhePublicAssistantReply(
   history: PublicChatHistoryEntry[],
   userMessage: string
 ): Promise<{ reply: string; error?: string }> {
-  if (isDivisionOfficeAddressQuery(userMessage)) {
-    return { reply: DIVISION_OFFICE_ADDRESS_REPLY };
+  // 1. Analyze Intetns
+  const wantsBill = isPendingAmountQuery(userMessage);
+  
+  // Give 'where to go' a bit of a boost if they are talking about bills
+  let q = userMessage.toLowerCase();
+  if (wantsBill && (q.includes('where') || q.includes('kaha') || q.includes('kis office'))) {
+     q += " office"; // trick the parser into realizing they want the office address
   }
+  const wantsAddress = isDivisionOfficeAddressQuery(q);
 
+  // 2. Fetch Data
   const pendingLookupInput =
     isConsumerIdOnlyMessage(userMessage) && hadPendingAmountIntent(history)
       ? `pending amount ${userMessage}`
       : userMessage;
 
-  const pendingReply = await getPendingAmountReply(pendingLookupInput);
-  if (pendingReply) {
-    return { reply: sanitizeAssistantReply(pendingReply) };
+  let pendingReply: string | null = null;
+  if (wantsBill) {
+    pendingReply = await getPendingAmountReply(pendingLookupInput);
   }
 
+  // 3. Construct Multi-Intent Response
+  const responses: string[] = [];
+
+  // Priority 1: Bill Logic
+  if (pendingReply) {
+    responses.push(sanitizeAssistantReply(pendingReply));
+  }
+
+  // Priority 2: Address Logic
+  if (wantsAddress) {
+    // If they asked for bill + address, but we are currently prompting them for an ID, DON'T show address yet
+    const isAskingForId = pendingReply?.includes('Please share your consumer ID');
+    if (!isAskingForId) {
+      responses.push(DIVISION_OFFICE_ADDRESS_REPLY);
+    }
+  }
+
+  // If we snagged anything, join it and return
+  if (responses.length > 0) {
+     // Ensure "Want to proceed to pay?" is always at the absolute bottom
+     let finalString = responses.join('\n\n---\n\n');
+     if (finalString.includes('Want to proceed to pay?')) {
+        finalString = finalString.replace('\n\nWant to proceed to pay?', '');
+        finalString += '\n\nWant to proceed to pay?';
+     }
+     return { reply: finalString };
+  }
+
+  // 4. Fallback to AI conversational
   const sanitizedHistory = history
     .slice(-12)
     .filter((h) => (h.role === 'assistant' || h.role === 'user') && h.text.trim().length > 0)

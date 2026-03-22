@@ -1,0 +1,22 @@
+services:
+  # Next.js Web Service
+  - type: web
+    name: phe-web
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      # Add all your existing web service environment variables here in the dashboard later
+
+  # Python LiveKit Background Worker
+  - type: worker
+    name: phe-livekit-agent
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python lib/agent.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0 # Or whichever version matches your local environment
+      # Add your matching LIVEKIT and GEMINI environment variables here

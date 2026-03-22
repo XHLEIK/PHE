@@ -6,7 +6,8 @@
  * based on the complaint details and location (Arunachal Pradesh).
  */
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+import { fetchWithGeminiKeyRotation } from './gemini-keys';
+
 const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 const TIMEOUT_MS = 30_000;
@@ -84,13 +85,6 @@ export async function getChatResponse(
   conversationHistory: ChatHistoryEntry[],
   userMessage: string
 ): Promise<{ reply: string; error?: string }> {
-  if (!GEMINI_API_KEY) {
-    return {
-      reply: '',
-      error: 'AI service is not configured. Please contact the helpdesk at 1800-345-3601 for assistance.',
-    };
-  }
-
   const systemInstruction = buildSystemInstruction(complaint);
 
   // Build the full conversation for Gemini
@@ -118,23 +112,19 @@ export async function getChatResponse(
   };
 
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeout);
+    const response = await fetchWithGeminiKeyRotation(
+      (key) => `${GEMINI_API_URL}?key=${key}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      },
+      TIMEOUT_MS
+    );
 
     if (!response.ok) {
       const errText = await response.text().catch(() => 'Unknown error');
-      console.error('[GEMINI CHAT ERROR]', response.status, errText);
-      return {
-        reply: '',
+      console.error('[GEMINI CHAT ERROR]', response.status, errText);      return {        reply: '',
         error: 'AI service is temporarily unavailable. Please try again or call the helpdesk at 1800-345-3601.',
       };
     }
@@ -151,6 +141,9 @@ export async function getChatResponse(
 
     return { reply: text.trim() };
   } catch (err: unknown) {
+    if (err instanceof Error && err.message.includes('No GEMINI_API_KEY')) {
+      return { reply: '', error: 'AI service is not configured. Please contact the helpdesk at 1800-345-3601 for assistance.' };
+    }
     if (err instanceof Error && err.name === 'AbortError') {
       return {
         reply: '',
