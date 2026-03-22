@@ -16,8 +16,8 @@ import { DEPARTMENT_IDS } from './constants';
 import { createAuditEntry } from './models/AuditLog';
 import { scheduleCall } from './call-scheduler';
 import { PHE_DEPARTMENT_IDS } from './constants/phe';
+import { fetchWithGeminiKeyRotation } from './gemini-keys';
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 const TIMEOUT_MS = 30_000;
@@ -87,30 +87,25 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no explanation. Example format:
 // Call Gemini API with timeout + retry
 // ---------------------------------------------------------------------------
 async function callGemini(prompt: string, attempt = 0): Promise<GeminiAnalysisResult | null> {
-  if (!GEMINI_API_KEY) {
-    throw new Error('GEMINI_API_KEY environment variable is not set');
-  }
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
   const promptHash = crypto.createHash('sha256').update(prompt).digest('hex').slice(0, 16);
 
   try {
-    const res = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal: controller.signal,
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 1024,
-          responseMimeType: 'application/json',
-        },
-      }),
-    });
-
-    clearTimeout(timeoutId);
+    const res = await fetchWithGeminiKeyRotation(
+      (key) => `${GEMINI_API_URL}?key=${key}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 1024,
+            responseMimeType: 'application/json',
+          },
+        }),
+      },
+      TIMEOUT_MS
+    );
 
     if (!res.ok) {
       const errText = await res.text().catch(() => res.statusText);
@@ -158,8 +153,6 @@ async function callGemini(prompt: string, attempt = 0): Promise<GeminiAnalysisRe
       promptHash,
     };
   } catch (err) {
-    clearTimeout(timeoutId);
-
     const isRetryable = attempt < MAX_RETRIES;
     if (isRetryable) {
       const delay = RETRY_DELAY_MS * Math.pow(2, attempt);
