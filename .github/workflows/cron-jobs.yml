@@ -1,0 +1,52 @@
+name: Scheduled Cron Jobs
+
+on:
+  schedule:
+    - cron: "* * * * *"
+    - cron: "0 */6 * * *"
+    - cron: "0 */12 * * *"
+    - cron: "0 3 * * 0"
+  workflow_dispatch:
+
+jobs:
+  run-cron-jobs:
+    name: Run Scheduled API Jobs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger scheduled endpoints
+        env:
+          CRON_BASE_URL: https://phe.vercel.app
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          CRON_EXPR: ${{ github.event.schedule }}
+        run: |
+          set -e
+
+          call_api () {
+            curl -fsS "${CRON_BASE_URL}$1?key=${CRON_SECRET}"
+          }
+
+          if [ "$CRON_EXPR" = "* * * * *" ]; then
+            call_api "/api/calls/process-scheduled"
+          fi
+
+          if [ "$CRON_EXPR" = "0 */6 * * *" ]; then
+            call_api "/api/admin/cron/sla-check"
+            call_api "/api/admin/cron/sla-warning"
+          fi
+
+          if [ "$CRON_EXPR" = "0 */12 * * *" ]; then
+            call_api "/api/admin/cron/stale-complaints"
+          fi
+
+          if [ "$CRON_EXPR" = "0 3 * * 0" ]; then
+            call_api "/api/admin/cron/data-retention"
+          fi
+
+          if [ -z "$CRON_EXPR" ]; then
+            call_api "/api/calls/process-scheduled"
+            call_api "/api/admin/cron/sla-check"
+            call_api "/api/admin/cron/sla-warning"
+            call_api "/api/admin/cron/stale-complaints"
+            call_api "/api/admin/cron/data-retention"
+          fi
