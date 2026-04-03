@@ -32,7 +32,7 @@
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.36.4",
     "@vitejs/plugin-react": "^5.1.4",
-    "autoprefixer": "^10.4.19",
+    "autoprefixer": "^10.4.27",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.9.0",
     "concurrently": "^9.2.1",
