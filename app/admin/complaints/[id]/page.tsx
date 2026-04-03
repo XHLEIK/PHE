@@ -62,7 +62,7 @@ const CLOSURE_REASONS = ['Issue Resolved', 'Duplicate', 'Invalid', 'Transferred'
 const ComplaintDetailPage = () => {
   const params = useParams();
   const router = useRouter();
-  const complaintId = params.id as string;
+  const complaintId = params.id ? decodeURIComponent(params.id as string) : '';
 
   const [complaint, setComplaint] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -84,7 +84,7 @@ const ComplaintDetailPage = () => {
   // Contact reveal
   const [showRevealModal, setShowRevealModal] = useState(false);
   const [revealReason, setRevealReason] = useState('');
-  const [revealedContact, setRevealedContact] = useState<{phone: string | null; email: string | null; name: string | null} | null>(null);
+  const [revealedContact, setRevealedContact] = useState<{ phone: string | null; email: string | null; name: string | null } | null>(null);
   const [revealing, setRevealing] = useState(false);
   const [revealError, setRevealError] = useState('');
 
@@ -320,22 +320,20 @@ const ComplaintDetailPage = () => {
                 <div className="flex border-b border-slate-200">
                   <button
                     onClick={() => setActiveTab('details')}
-                    className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-2 ${
-                      activeTab === 'details'
+                    className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-2 ${activeTab === 'details'
                         ? 'border-amber-700 text-amber-800 bg-amber-50/50'
                         : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-                    }`}
+                      }`}
                   >
                     <FileText size={14} />
                     Details
                   </button>
                   <button
                     onClick={() => setActiveTab('calls')}
-                    className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-2 ${
-                      activeTab === 'calls'
+                    className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-2 ${activeTab === 'calls'
                         ? 'border-amber-700 text-amber-800 bg-amber-50/50'
                         : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-                    }`}
+                      }`}
                   >
                     <Phone size={14} />
                     Calls
@@ -347,11 +345,10 @@ const ComplaintDetailPage = () => {
                   </button>
                   <button
                     onClick={() => setActiveTab('notes')}
-                    className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-2 ${
-                      activeTab === 'notes'
+                    className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-2 ${activeTab === 'notes'
                         ? 'border-amber-700 text-amber-800 bg-amber-50/50'
                         : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-                    }`}
+                      }`}
                   >
                     <MessageSquare size={14} />
                     Notes
@@ -363,11 +360,10 @@ const ComplaintDetailPage = () => {
                   </button>
                   <button
                     onClick={() => setActiveTab('audit')}
-                    className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-2 ${
-                      activeTab === 'audit'
+                    className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-2 ${activeTab === 'audit'
                         ? 'border-amber-700 text-amber-800 bg-amber-50/50'
                         : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-                    }`}
+                      }`}
                   >
                     <History size={14} />
                     Audit
@@ -383,159 +379,157 @@ const ComplaintDetailPage = () => {
               {/* ═══ Details Tab ═══ */}
               {activeTab === 'details' && (
                 <>
-              {/* Complaint Details Card */}
-              <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-5">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded border ${priorityColors[currentPriority] || 'text-slate-600 bg-slate-100 border-slate-200'}`}>
-                    {currentPriority}
-                  </span>
-                  <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded border ${statusColors[currentStatus] || 'text-slate-600 bg-slate-100 border-slate-200'}`}>
-                    {statusLabel(currentStatus)}
-                  </span>
-                  <SLABadge
-                    slaDeadline={(complaint.slaDeadline as string) || null}
-                    slaBreached={!!complaint.slaBreached}
-                    status={currentStatus}
-                  />
-                </div>
-
-                <h2 className="text-lg font-semibold text-slate-900">{String(complaint.title || '')}</h2>
-                <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{String(complaint.description || '')}</p>
-
-                {/* Attachments */}
-                {Array.isArray(complaint.attachments) && (complaint.attachments as Array<Record<string, unknown>>).length > 0 && (
-                  <div className="pt-3">
-                    <AttachmentGallery
-                      attachments={(complaint.attachments as Array<Record<string, unknown>>).map((att) => ({
-                        fileName: String(att.fileName || 'File'),
-                        fileType: String(att.fileType || ''),
-                        fileSize: Number(att.fileSize || 0),
-                        url: String(att.url || ''),
-                        thumbnailUrl: String(att.thumbnailUrl || ''),
-                        storageKey: String(att.storageKey || att.publicId || ''),
-                        streamingUrl: String(att.streamingUrl || ''),
-                        posterUrl: String(att.posterUrl || ''),
-                      }))}
-                    />
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-slate-100">
-                  <div className="space-y-1">
-                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Department</p>
-                    <p className="text-sm font-medium text-slate-700 flex items-center gap-1"><Building2 size={14} className="text-amber-700" /> {String(complaint.department || '—')}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Location</p>
-                    <p className="text-sm font-medium text-slate-700 flex items-center gap-1"><MapPin size={14} className="text-amber-700" /> {String(complaint.location || '—')}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Submitter</p>
-                    <p className="text-sm font-medium text-slate-700 flex items-center gap-1"><User size={14} className="text-amber-700" /> {String(complaint.submitterName || 'Anonymous')}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Updated</p>
-                    <p className="text-sm font-medium text-slate-700 flex items-center gap-1"><Clock size={14} className="text-amber-700" /> {formatDate(complaint.updatedAt)}</p>
-                  </div>
-                </div>
-
-                {/* Contact Info — masked by default, with reveal button */}
-                {(!!complaint.submitterPhone || !!complaint.submitterEmail) && (
-                  <div className="pt-4 border-t border-slate-100">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-[10px] text-slate-400 uppercase tracking-wider">Contact Information</p>
-                      {!revealedContact && canRevealContact && (
-                        <button
-                          onClick={() => setShowRevealModal(true)}
-                          className="flex items-center gap-1 text-xs text-amber-700 hover:text-amber-900 font-medium transition-colors"
-                        >
-                          <Eye size={14} />
-                          Reveal Full Contact
-                        </button>
-                      )}
+                  {/* Complaint Details Card */}
+                  <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded border ${priorityColors[currentPriority] || 'text-slate-600 bg-slate-100 border-slate-200'}`}>
+                        {currentPriority}
+                      </span>
+                      <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded border ${statusColors[currentStatus] || 'text-slate-600 bg-slate-100 border-slate-200'}`}>
+                        {statusLabel(currentStatus)}
+                      </span>
+                      <SLABadge
+                        slaDeadline={(complaint.slaDeadline as string) || null}
+                        slaBreached={!!complaint.slaBreached}
+                        status={currentStatus}
+                      />
                     </div>
-                    <div className="flex gap-4 text-sm text-slate-600">
-                      {revealedContact ? (
-                        <>
-                          <span>📞 {revealedContact.phone || '—'}</span>
-                          <span>✉️ {revealedContact.email || '—'}</span>
-                        </>
-                      ) : (
-                        <>
-                          {!!complaint.submitterPhone && <span className="flex items-center gap-1"><EyeOff size={12} className="text-slate-400" /> 📞 {String(complaint.submitterPhone)}</span>}
-                          {!!complaint.submitterEmail && <span className="flex items-center gap-1"><EyeOff size={12} className="text-slate-400" /> ✉️ {String(complaint.submitterEmail)}</span>}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
 
-              {/* AI Analysis Card — using real AI fields */}
-              {!!(complaint.aiSummary || complaint.analysisStatus) && (
-                <div className={`border rounded-xl p-6 ${
-                  complaint.analysisStatus === 'deferred' ? 'bg-amber-50 border-amber-200' :
-                  complaint.analysisStatus === 'completed' ? 'bg-emerald-50 border-emerald-200' :
-                  'bg-blue-50 border-blue-200'
-                }`}>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold flex items-center gap-2">
-                      <BrainCircuit size={16} className="text-amber-700" />
-                      Samadhan AI Analysis
-                      {complaint.analysisStatus === 'queued' || complaint.analysisStatus === 'processing' ? (
-                        <span className="text-xs text-blue-600 flex items-center gap-1"><Loader2 size={12} className="animate-spin" /> Analyzing…</span>
-                      ) : complaint.analysisStatus === 'deferred' ? (
-                        <span className="text-xs text-amber-600">Deferred — Needs Review</span>
-                      ) : null}
-                    </h3>
-                    {complaint.analysisStatus === 'deferred' && (
-                      <button
-                        onClick={handleReanalyze}
-                        disabled={reanalyzing}
-                        className="flex items-center gap-1 text-xs text-amber-700 hover:text-amber-900 font-medium disabled:opacity-50"
-                      >
-                        <RefreshCw size={12} className={reanalyzing ? 'animate-spin' : ''} />
-                        Re-analyze
-                      </button>
+                    <h2 className="text-lg font-semibold text-slate-900">{String(complaint.title || '')}</h2>
+                    <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{String(complaint.description || '')}</p>
+
+                    {/* Attachments */}
+                    {Array.isArray(complaint.attachments) && (complaint.attachments as Array<Record<string, unknown>>).length > 0 && (
+                      <div className="pt-3">
+                        <AttachmentGallery
+                          attachments={(complaint.attachments as Array<Record<string, unknown>>).map((att) => ({
+                            fileName: String(att.fileName || 'File'),
+                            fileType: String(att.fileType || ''),
+                            fileSize: Number(att.fileSize || 0),
+                            url: String(att.url || ''),
+                            thumbnailUrl: String(att.thumbnailUrl || ''),
+                            storageKey: String(att.storageKey || att.publicId || ''),
+                            streamingUrl: String(att.streamingUrl || ''),
+                            posterUrl: String(att.posterUrl || ''),
+                          }))}
+                        />
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-slate-100">
+                      <div className="space-y-1">
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">Department</p>
+                        <p className="text-sm font-medium text-slate-700 flex items-center gap-1"><Building2 size={14} className="text-amber-700" /> {String(complaint.department || '—')}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">Location</p>
+                        <p className="text-sm font-medium text-slate-700 flex items-center gap-1"><MapPin size={14} className="text-amber-700" /> {String(complaint.location || '—')}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">Submitter</p>
+                        <p className="text-sm font-medium text-slate-700 flex items-center gap-1"><User size={14} className="text-amber-700" /> {String(complaint.submitterName || 'Anonymous')}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">Updated</p>
+                        <p className="text-sm font-medium text-slate-700 flex items-center gap-1"><Clock size={14} className="text-amber-700" /> {formatDate(complaint.updatedAt)}</p>
+                      </div>
+                    </div>
+
+                    {/* Contact Info — masked by default, with reveal button */}
+                    {(!!complaint.submitterPhone || !!complaint.submitterEmail) && (
+                      <div className="pt-4 border-t border-slate-100">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">Contact Information</p>
+                          {!revealedContact && canRevealContact && (
+                            <button
+                              onClick={() => setShowRevealModal(true)}
+                              className="flex items-center gap-1 text-xs text-amber-700 hover:text-amber-900 font-medium transition-colors"
+                            >
+                              <Eye size={14} />
+                              Reveal Full Contact
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex gap-4 text-sm text-slate-600">
+                          {revealedContact ? (
+                            <>
+                              <span>📞 {revealedContact.phone || '—'}</span>
+                              <span>✉️ {revealedContact.email || '—'}</span>
+                            </>
+                          ) : (
+                            <>
+                              {!!complaint.submitterPhone && <span className="flex items-center gap-1"><EyeOff size={12} className="text-slate-400" /> 📞 {String(complaint.submitterPhone)}</span>}
+                              {!!complaint.submitterEmail && <span className="flex items-center gap-1"><EyeOff size={12} className="text-slate-400" /> ✉️ {String(complaint.submitterEmail)}</span>}
+                            </>
+                          )}
+                        </div>
+                      </div>
                     )}
                   </div>
 
-                  {!!complaint.aiSummary && (
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">AI Summary</p>
-                        <p className="text-sm text-slate-800">{String(complaint.aiSummary || '')}</p>
-                      </div>
-                      <div className="grid grid-cols-3 gap-3">
-                        {!!complaint.aiCategory && (
-                          <div>
-                            <p className="text-[10px] text-slate-500 uppercase tracking-wider">Suggested Dept</p>
-                            <p className="text-sm font-medium text-slate-700">{String(complaint.aiCategory || '')}</p>
-                          </div>
-                        )}
-                        {!!complaint.aiPriority && (
-                          <div>
-                            <p className="text-[10px] text-slate-500 uppercase tracking-wider">Suggested Priority</p>
-                            <p className="text-sm font-medium text-slate-700 capitalize">{String(complaint.aiPriority || '')}</p>
-                          </div>
-                        )}
-                        {complaint.aiConfidence != null && (
-                          <div>
-                            <p className="text-[10px] text-slate-500 uppercase tracking-wider">Confidence</p>
-                            <p className={`text-sm font-medium ${
-                              Number(complaint.aiConfidence) >= 0.8 ? 'text-emerald-700' :
-                              Number(complaint.aiConfidence) >= 0.6 ? 'text-amber-700' : 'text-rose-700'
-                            }`}>
-                              {Math.round(Number(complaint.aiConfidence) * 100)}%
-                              {Number(complaint.aiConfidence) < 0.6 && <span className="text-xs text-amber-600 ml-1">⚠ Low confidence</span>}
-                            </p>
-                          </div>
+                  {/* AI Analysis Card — using real AI fields */}
+                  {!!(complaint.aiSummary || complaint.analysisStatus) && (
+                    <div className={`border rounded-xl p-6 ${complaint.analysisStatus === 'deferred' ? 'bg-amber-50 border-amber-200' :
+                        complaint.analysisStatus === 'completed' ? 'bg-emerald-50 border-emerald-200' :
+                          'bg-blue-50 border-blue-200'
+                      }`}>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-semibold flex items-center gap-2">
+                          <BrainCircuit size={16} className="text-amber-700" />
+                          Samadhan AI Analysis
+                          {complaint.analysisStatus === 'queued' || complaint.analysisStatus === 'processing' ? (
+                            <span className="text-xs text-blue-600 flex items-center gap-1"><Loader2 size={12} className="animate-spin" /> Analyzing…</span>
+                          ) : complaint.analysisStatus === 'deferred' ? (
+                            <span className="text-xs text-amber-600">Deferred — Needs Review</span>
+                          ) : null}
+                        </h3>
+                        {complaint.analysisStatus === 'deferred' && (
+                          <button
+                            onClick={handleReanalyze}
+                            disabled={reanalyzing}
+                            className="flex items-center gap-1 text-xs text-amber-700 hover:text-amber-900 font-medium disabled:opacity-50"
+                          >
+                            <RefreshCw size={12} className={reanalyzing ? 'animate-spin' : ''} />
+                            Re-analyze
+                          </button>
                         )}
                       </div>
+
+                      {!!complaint.aiSummary && (
+                        <div className="space-y-3">
+                          <div>
+                            <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">AI Summary</p>
+                            <p className="text-sm text-slate-800">{String(complaint.aiSummary || '')}</p>
+                          </div>
+                          <div className="grid grid-cols-3 gap-3">
+                            {!!complaint.aiCategory && (
+                              <div>
+                                <p className="text-[10px] text-slate-500 uppercase tracking-wider">Suggested Dept</p>
+                                <p className="text-sm font-medium text-slate-700">{String(complaint.aiCategory || '')}</p>
+                              </div>
+                            )}
+                            {!!complaint.aiPriority && (
+                              <div>
+                                <p className="text-[10px] text-slate-500 uppercase tracking-wider">Suggested Priority</p>
+                                <p className="text-sm font-medium text-slate-700 capitalize">{String(complaint.aiPriority || '')}</p>
+                              </div>
+                            )}
+                            {complaint.aiConfidence != null && (
+                              <div>
+                                <p className="text-[10px] text-slate-500 uppercase tracking-wider">Confidence</p>
+                                <p className={`text-sm font-medium ${Number(complaint.aiConfidence) >= 0.8 ? 'text-emerald-700' :
+                                    Number(complaint.aiConfidence) >= 0.6 ? 'text-amber-700' : 'text-rose-700'
+                                  }`}>
+                                  {Math.round(Number(complaint.aiConfidence) * 100)}%
+                                  {Number(complaint.aiConfidence) < 0.6 && <span className="text-xs text-amber-600 ml-1">⚠ Low confidence</span>}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
-                </div>
-              )}
                 </>
               )}
 
@@ -570,35 +564,35 @@ const ComplaintDetailPage = () => {
                       <p className="text-sm text-slate-400">No audit entries found for this complaint.</p>
                     </div>
                   ) : (
-                  <div className="space-y-3">
-                    {auditLogs.map((log, i) => (
-                      <div key={i} className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
-                        <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-500 shrink-0 mt-0.5">
-                          {i + 1}
+                    <div className="space-y-3">
+                      {auditLogs.map((log, i) => (
+                        <div key={i} className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
+                          <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-500 shrink-0 mt-0.5">
+                            {i + 1}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-slate-700">
+                              <span className="font-medium">{log.actor}</span>
+                              {' updated '}
+                              {Object.entries(log.changes).map(([key, val]) => (
+                                <span key={key} className="inline">
+                                  <span className="font-medium">{key}</span>
+                                  {' from '}
+                                  <span className="text-slate-400">{String(val.from)}</span>
+                                  {' → '}
+                                  <span className="text-amber-700 font-medium">{String(val.to)}</span>
+                                  {' '}
+                                </span>
+                              ))}
+                            </p>
+                            {!!log.metadata?.reason && (
+                              <p className="text-xs text-slate-500 mt-1">Reason: {String(log.metadata.reason)}</p>
+                            )}
+                            <p className="text-[10px] text-slate-400 mt-1">{formatDate(log.createdAt)}</p>
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-slate-700">
-                            <span className="font-medium">{log.actor}</span>
-                            {' updated '}
-                            {Object.entries(log.changes).map(([key, val]) => (
-                              <span key={key} className="inline">
-                                <span className="font-medium">{key}</span>
-                                {' from '}
-                                <span className="text-slate-400">{String(val.from)}</span>
-                                {' → '}
-                                <span className="text-amber-700 font-medium">{String(val.to)}</span>
-                                {' '}
-                              </span>
-                            ))}
-                          </p>
-                          {!!log.metadata?.reason && (
-                            <p className="text-xs text-slate-500 mt-1">Reason: {String(log.metadata.reason)}</p>
-                          )}
-                          <p className="text-[10px] text-slate-400 mt-1">{formatDate(log.createdAt)}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               )}
@@ -774,9 +768,8 @@ const ComplaintDetailPage = () => {
                 {revealError && <div className="mb-3 px-3 py-2 bg-rose-50 border border-rose-200 rounded-lg text-sm text-rose-700">{revealError}</div>}
                 <div className="space-y-3 mb-6">
                   {REVEAL_REASONS.map((r) => (
-                    <label key={r} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
-                      revealReason === r ? 'border-amber-500 bg-amber-50' : 'border-slate-200 hover:bg-slate-50'
-                    }`}>
+                    <label key={r} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${revealReason === r ? 'border-amber-500 bg-amber-50' : 'border-slate-200 hover:bg-slate-50'
+                      }`}>
                       <input
                         type="radio"
                         name="revealReason"

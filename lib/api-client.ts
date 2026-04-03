@@ -157,11 +157,11 @@ export async function getComplaints(query: ComplaintQuery = {}) {
 }
 
 export async function getComplaintById(id: string) {
-  return request<Record<string, unknown>>(`/api/complaints/${id}`);
+  return request<Record<string, unknown>>(`/api/complaints/${encodeURIComponent(id)}`);
 }
 
 export async function updateComplaint(id: string, data: Record<string, unknown>) {
-  return request<Record<string, unknown>>(`/api/complaints/${id}`, {
+  return request<Record<string, unknown>>(`/api/complaints/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     body: JSON.stringify(data),
   });
@@ -193,18 +193,18 @@ export async function createAdminUser(data: CreateAdminPayload) {
 }
 
 export async function getAdminUserById(id: string) {
-  return request<Record<string, unknown>>(`/api/admin/users/${id}`);
+  return request<Record<string, unknown>>(`/api/admin/users/${encodeURIComponent(id)}`);
 }
 
 export async function updateAdminUser(id: string, data: Record<string, unknown>) {
-  return request<Record<string, unknown>>(`/api/admin/users/${id}`, {
+  return request<Record<string, unknown>>(`/api/admin/users/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     body: JSON.stringify(data),
   });
 }
 
 export async function resetAdminPassword(id: string, temporaryPassword: string) {
-  return request<{ message: string }>(`/api/admin/users/${id}/reset-password`, {
+  return request<{ message: string }>(`/api/admin/users/${encodeURIComponent(id)}/reset-password`, {
     method: 'POST',
     body: JSON.stringify({ temporaryPassword }),
   });
@@ -228,7 +228,7 @@ export async function getDashboardStats() {
 // ---------------------------------------------------------------------------
 export async function revealContact(complaintId: string, reason: string) {
   return request<{ phone: string | null; email: string | null; name: string | null }>(
-    `/api/complaints/${complaintId}/reveal-contact`,
+    `/api/complaints/${encodeURIComponent(complaintId)}/reveal-contact`,
     { method: 'POST', body: JSON.stringify({ reason }) }
   );
 }
@@ -238,7 +238,7 @@ export async function revealContact(complaintId: string, reason: string) {
 // ---------------------------------------------------------------------------
 export async function reanalyzeComplaint(complaintId: string) {
   return request<Record<string, unknown>>(
-    `/api/complaints/${complaintId}/reanalyze`,
+    `/api/complaints/${encodeURIComponent(complaintId)}/reanalyze`,
     { method: 'POST' }
   );
 }

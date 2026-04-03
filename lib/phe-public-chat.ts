@@ -153,7 +153,7 @@ function isPendingAmountQuery(input: string): boolean {
 
   // 3. Positive Broad Intents (English, Hinglish, Formal, Informal)
   const positivePattern = /(pending|due|bill|amount|outstanding|balance|status|owe|liability|unpaid|left to pay|clear.*payment|settle|kitna|baki|bakaya|dena hai|ho gaya ya nahi)/i;
-  
+
   if (positivePattern.test(q)) {
     return true;
   }
@@ -163,6 +163,17 @@ function isPendingAmountQuery(input: string): boolean {
     return true;
   }
 
+  return false;
+}
+
+function isNewConnectionQuery(input: string): boolean {
+  const q = input.toLowerCase().trim();
+  const positivePattern = /(new connection|water connection|apply for connection|get connection|new water line|apply for water)/i;
+
+  // Ignore negation if they say "how to" since that's still an intent to apply
+  if (positivePattern.test(q)) {
+    return true;
+  }
   return false;
 }
 
@@ -294,13 +305,14 @@ export async function getPhePublicAssistantReply(
 ): Promise<{ reply: string; error?: string }> {
   // 1. Analyze Intetns
   const wantsBill = isPendingAmountQuery(userMessage);
-  
+
   // Give 'where to go' a bit of a boost if they are talking about bills
   let q = userMessage.toLowerCase();
   if (wantsBill && (q.includes('where') || q.includes('kaha') || q.includes('kis office'))) {
-     q += " office"; // trick the parser into realizing they want the office address
+    q += " office"; // trick the parser into realizing they want the office address
   }
   const wantsAddress = isDivisionOfficeAddressQuery(q);
+  const wantsNewConnection = isNewConnectionQuery(userMessage);
 
   // 2. Fetch Data
   const pendingLookupInput =
@@ -330,15 +342,20 @@ export async function getPhePublicAssistantReply(
     }
   }
 
+  // Priority 3: New Connection Form
+  if (wantsNewConnection) {
+    responses.push("Please fill out the form below to apply for a new water connection.\n\n[ACTION: SHOW_NEW_CONNECTION_FORM]");
+  }
+
   // If we snagged anything, join it and return
   if (responses.length > 0) {
-     // Ensure "Want to proceed to pay?" is always at the absolute bottom
-     let finalString = responses.join('\n\n---\n\n');
-     if (finalString.includes('Want to proceed to pay?')) {
-        finalString = finalString.replace('\n\nWant to proceed to pay?', '');
-        finalString += '\n\nWant to proceed to pay?';
-     }
-     return { reply: finalString };
+    // Ensure "Want to proceed to pay?" is always at the absolute bottom
+    let finalString = responses.join('\n\n---\n\n');
+    if (finalString.includes('Want to proceed to pay?')) {
+      finalString = finalString.replace('\n\nWant to proceed to pay?', '');
+      finalString += '\n\nWant to proceed to pay?';
+    }
+    return { reply: finalString };
   }
 
   // 4. Fallback to AI conversational

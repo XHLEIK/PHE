@@ -52,7 +52,8 @@ export async function GET(
 
     const adminCtx = toAdminCtx(payload);
 
-    const { id } = await params;
+    const { id: rawId } = await params;
+    const id = decodeURIComponent(rawId);
     await connectDB();
 
     const complaint = await Complaint.findOne({ complaintId: id }).lean();
@@ -116,7 +117,8 @@ export async function PATCH(
       );
     }
 
-    const { id } = await params;
+    const { id: rawId } = await params;
+    const id = decodeURIComponent(rawId);
     await connectDB();
 
     const complaint = await Complaint.findOne({ complaintId: id });
@@ -234,8 +236,8 @@ export async function PATCH(
       ).catch(err => console.error('[CITIZEN NOTIFICATION ERROR]', err));
 
       // Invalidate dashboard stats/analytics cache on status/priority changes
-      invalidateCacheByPrefix('stats:').catch(() => {});
-      invalidateCacheByPrefix('analytics:').catch(() => {});
+      invalidateCacheByPrefix('stats:').catch(() => { });
+      invalidateCacheByPrefix('analytics:').catch(() => { });
     }
 
     const canSeeContact = getRoleLevel(adminCtx.role) <= 1;

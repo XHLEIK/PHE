@@ -58,8 +58,11 @@ export async function GET(
       const changes = (entry.changes || {}) as Record<string, { from: unknown; to: unknown }>;
 
       if (entry.action === 'complaint.created') {
-        event.label = 'Complaint Submitted';
-        event.description = 'Your grievance was received and registered in the system.';
+        const isReq = complaint.complaintId?.startsWith('PHED/');
+        event.label = isReq ? 'Request Submitted' : 'Complaint Submitted';
+        event.description = isReq
+          ? 'Your new connection request was received and registered in the system.'
+          : 'Your grievance was received and registered in the system.';
         event.type = 'created';
       } else if (entry.action === 'complaint.updated') {
         const descriptions: string[] = [];

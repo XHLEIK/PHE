@@ -296,7 +296,10 @@ export const trackComplaintSchema = z.object({
     .trim()
     .min(1, 'Complaint ID is required')
     .refine(
-      (id) => PHE_TRACKING_REGEX.test(id) || /^GRV-[A-Z]{2}-[A-Z]{3}-\d{4}-\d{6}$/.test(id),
+      (id) =>
+        PHE_TRACKING_REGEX.test(id) ||
+        /^GRV-[A-Z]{2}-[A-Z]{3}-\d{4}-\d{6}$/.test(id) ||
+        /^PHED\/\d{4}\/\d+$/.test(id),
       'Invalid complaint tracking ID format'
     ),
 });
@@ -307,6 +310,34 @@ export const citizenComplaintQuerySchema = z.object({
   status: z.enum(['pending', 'triage', 'in_progress', 'resolved', 'closed', 'escalated']).optional(),
   sort: z.enum(['createdAt', '-createdAt']).default('-createdAt'),
   search: z.string().trim().max(200).optional(),
+});
+
+// ---------------------------------------------------------------------------
+// Public Content & AI Chat forms
+// ---------------------------------------------------------------------------
+
+export const newConnectionSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(3, 'Name must be at least 3 characters')
+    .max(100, 'Name must not exceed 100 characters'),
+  phone: z
+    .string()
+    .trim()
+    .regex(
+      /^(\+91)?[6-9]\d{9}$/,
+      'Enter a valid Indian mobile number'
+    ),
+  address: z
+    .string()
+    .trim()
+    .min(10, 'Address must be at least 10 characters')
+    .max(500, 'Address must not exceed 500 characters'),
+  idProofUrl: z
+    .string()
+    .url('Invalid file URL')
+    .min(1, 'ID Proof is required'),
 });
 
 // ---------------------------------------------------------------------------

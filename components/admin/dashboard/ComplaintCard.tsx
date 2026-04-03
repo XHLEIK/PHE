@@ -37,7 +37,7 @@ const ComplaintCard: React.FC<{ complaint: Complaint }> = ({ complaint }) => {
   const displayText = complaint.aiSummary || complaint.description;
 
   return (
-    <Link href={`/admin/complaints/${complaint.id}`}>
+    <Link href={`/admin/complaints/${encodeURIComponent(complaint.id)}`}>
       <div className="bg-white p-5 rounded-xl border border-slate-200 group hover:border-amber-300 hover:shadow-md transition-all duration-200 cursor-pointer">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0 space-y-3">
@@ -83,11 +83,10 @@ const ComplaintCard: React.FC<{ complaint: Complaint }> = ({ complaint }) => {
 
             <div className="flex items-center gap-3 pt-1">
               <span className="text-xs font-medium text-slate-400">{complaint.id}</span>
-              <span className={`text-xs font-medium px-2 py-0.5 rounded ${
-                complaint.department === 'Unassigned'
+              <span className={`text-xs font-medium px-2 py-0.5 rounded ${complaint.department === 'Unassigned'
                   ? 'text-rose-600 bg-rose-50'
                   : 'text-amber-700 bg-amber-50'
-              }`}>
+                }`}>
                 {complaint.department === 'Unassigned' ? '⚠ Unassigned' : complaint.department}
               </span>
             </div>

@@ -156,4 +156,30 @@ export async function generatePheTrackingId(): Promise<string> {
   return `${prefix}-${seq}`;
 }
 
+// ---------------------------------------------------------------------------
+// PHE New Connection ID: PHED/YYYY/N
+// ---------------------------------------------------------------------------
+
+/**
+ * Generate a New Connection unique ID.
+ *
+ * Format: PHED/YYYY/N
+ * Example: PHED/2026/1, PHED/2026/2...
+ *
+ * Uses the same atomic counter pattern as other tracking IDs.
+ * Counter key: "PHED/YYYY" (one sequence per year).
+ */
+export async function generateNewConnectionId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const prefix = `PHED/${year}`;
+
+  const counter = await Counter.findOneAndUpdate(
+    { _id: prefix },
+    { $inc: { seq: 1 } },
+    { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
+  );
+
+  return `${prefix}/${counter.seq}`;
+}
+
 export default Counter;

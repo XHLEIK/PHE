@@ -48,7 +48,8 @@ export async function POST(req: NextRequest, context: RouteContext) {
       throw e;
     }
 
-    const { id } = await context.params;
+    const { id: rawId } = await context.params;
+    const id = decodeURIComponent(rawId);
     const body = await req.json();
     const parsed = assignComplaintSchema.safeParse(body);
 

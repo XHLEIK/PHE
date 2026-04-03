@@ -15,7 +15,7 @@ import Department from './models/Department';
 import { DEPARTMENT_IDS } from './constants';
 import { createAuditEntry } from './models/AuditLog';
 import { scheduleCall } from './call-scheduler';
-import { PHE_DEPARTMENT_IDS } from './constants/phe';
+import { PHE_DEPARTMENT_IDS, PHE_ALLOWED_DEPARTMENTS } from './constants/phe';
 import { fetchWithGeminiKeyRotation } from './gemini-keys';
 
 const GEMINI_MODEL = 'gemini-2.5-flash';
@@ -44,21 +44,12 @@ type AnalysisOutcome = GeminiAnalysisResult | GeminiDeferredResult;
 // Build the analysis prompt
 // ---------------------------------------------------------------------------
 async function buildPrompt(title: string, description: string): Promise<{ prompt: string; departmentIds: string[] }> {
-  // Try to get active department IDs from DB; fallback to constants
-  let departmentIds: string[] = DEPARTMENT_IDS;
-  try {
-    const depts = await Department.find({ active: true }).select('id label').lean();
-    if (depts.length > 0) {
-      departmentIds = depts.map(d => d.id);
-    }
-  } catch {
-    // DB lookup failed — use constants fallback silently
-  }
+  // STRICTLY USE PHE DEPARTMENTS ONLY - Do not fetch from DB since DB might contain legacy non-PHE departments
+  const departmentIds = PHE_ALLOWED_DEPARTMENTS.map(d => d.id);
+  const deptList = PHE_ALLOWED_DEPARTMENTS.map(d => `- ${d.id} (${d.label}): ${d.description}`).join('\n');
 
-  const deptList = departmentIds.join(', ');
-
-  const prompt = `You are an AI assistant for a state government grievance redressal system in India.
-Analyze the following citizen complaint and return a structured JSON response.
+  const prompt = `You are an AI assistant for the Arunachal Pradesh Public Health Engineering & Water Supply (PHE&WS) department.
+Analyze the following citizen water complaint or request and return a structured JSON response.
 
 COMPLAINT TITLE: ${title.trim()}
 
@@ -68,17 +59,16 @@ AVAILABLE DEPARTMENT IDs (use EXACTLY one of these values for "category"):
 ${deptList}
 
 INSTRUCTIONS:
-1. category: Choose the single most relevant department ID from the list above. Use exactly the ID string, not a label.
-2. priority: One of: "low", "medium", "high", "critical"
-   - critical: Immediate danger to life, public safety emergency
-   - high: Significant impact on daily life, urgent service failure  
-   - medium: Moderate inconvenience, needs timely resolution
-   - low: Minor issue, can be addressed in normal course
+1. category: Choose the single most relevant department ID from the list above based on the complaint details. Use exactly the ID string, not a label.
+2. priority: One of: "low", "medium", "high". (Do not use "critical" under normal circumstances).
+   - high: Significant impact on daily life, urgent service failure, major pipeline breaks, no water supply to an entire area.
+   - medium: Moderate inconvenience, needs timely resolution, individual household water supply issue.
+   - low: Minor issue, billing queries, suggestions, feedback.
 3. summary: 2-3 sentences, written for a government administrator. Be concise and factual. No legal jargon. Focus on: what the issue is, who is affected, what action is needed.
 4. confidence: A decimal between 0 and 1 representing how confident you are in the category and priority assignment.
 
 IMPORTANT: Return ONLY valid JSON, no markdown, no explanation. Example format:
-{"category":"pwd","priority":"high","summary":"Pothole on NH-44 near Itanagar causing road accidents. Multiple vehicles damaged. Requires immediate road repair.","confidence":0.92}`;
+{"category":"pipeline_maintenance","priority":"high","summary":"Major pipeline break reported on NH-44 near Itanagar. Multiple vehicles affected and water supply disrupted. Requires immediate repair.","confidence":0.92}`;
 
   return { prompt, departmentIds };
 }

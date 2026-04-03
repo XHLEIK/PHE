@@ -238,7 +238,9 @@ export default function CitizenComplaintDetailPage() {
 
           {/* Timeline */}
           <div className="mt-6 pt-6 border-t border-slate-100">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">Complaint Timeline</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">
+              {complaint.complaintId?.startsWith('PHED/') ? 'Request Timeline' : 'Complaint Timeline'}
+            </h3>
             <ComplaintTimeline events={timeline} />
           </div>
         </div>

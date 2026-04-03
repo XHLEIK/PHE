@@ -42,7 +42,8 @@ export async function POST(req: NextRequest, context: RouteContext) {
     const adminCtx = toAdminCtx(payload);
     authorize(adminCtx, 'complaint:reassign');
 
-    const { id } = await context.params;
+    const { id: rawId } = await context.params;
+    const id = decodeURIComponent(rawId);
     const body = await req.json();
     const parsed = escalateComplaintSchema.safeParse(body);
 

@@ -31,7 +31,8 @@ export async function GET(req: NextRequest, context: RouteContext) {
     const payload = verifyAccessToken(token);
     if (!payload) return errorResponse('Invalid or expired token', 401);
 
-    const { id } = await context.params;
+    const { id: rawId } = await context.params;
+    const id = decodeURIComponent(rawId);
 
     await connectDB();
 
@@ -80,7 +81,8 @@ export async function POST(req: NextRequest, context: RouteContext) {
     const payload = verifyAccessToken(token);
     if (!payload) return errorResponse('Invalid or expired token', 401);
 
-    const { id } = await context.params;
+    const { id: rawId } = await context.params;
+    const id = decodeURIComponent(rawId);
     const body = await req.json();
     const parsed = createNoteSchema.safeParse(body);
 

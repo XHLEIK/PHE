@@ -39,7 +39,8 @@ export async function POST(
       );
     }
 
-    const { id } = await params;
+    const { id: rawId } = await params;
+    const id = decodeURIComponent(rawId);
     await connectDB();
 
     const complaint = await Complaint.findOne({ complaintId: id })
