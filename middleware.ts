@@ -23,7 +23,7 @@ import { NextRequest, NextResponse } from 'next/server';
 // Static CSP directives (connect-src is built dynamically per-request)
 const CSP_STATIC_DIRECTIVES = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",          // Next.js requires inline scripts
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live",  // Next.js + Vercel Live
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
   "img-src 'self' data: blob: https://res.cloudinary.com",
@@ -49,6 +49,8 @@ function buildCsp(requestOrigin: string): string {
     'https://*.livekit.cloud',
     'https://api.resend.com',
     'https://*.upstash.io',
+    'https://vercel.live',
+    'wss://vercel.live',
   ].join(' ');
 
   return [...CSP_STATIC_DIRECTIVES, `connect-src ${connectSrc}`].join('; ');
