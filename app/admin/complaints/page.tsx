@@ -121,10 +121,10 @@ const ComplaintsPage = () => {
   return (
     <div className="min-h-screen bg-[#faf7f0] flex font-sans">
       <Sidebar />
-      
+
       <div className="flex-1 lg:ml-64 flex flex-col min-h-screen overflow-x-hidden">
         <Topbar />
-        
+
         <main className="p-6 md:p-8 space-y-6">
           {/* Header */}
           <div className="flex items-center justify-between">
@@ -203,86 +203,86 @@ const ComplaintsPage = () => {
                 const isDeferred = item.analysisStatus === 'deferred';
                 const displayText = item.aiSummary || item.description;
                 return (
-                <Link key={item.id} href={`/admin/complaints/${item.id}`}>
-                  <div className="bg-white p-5 rounded-xl border border-slate-200 hover:border-amber-300 hover:shadow-sm transition-all cursor-pointer group mb-3">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex items-start gap-3 flex-1 min-w-0">
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.includes(item._id)}
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            setSelectedIds(prev =>
-                              prev.includes(item._id)
-                                ? prev.filter(id => id !== item._id)
-                                : [...prev, item._id]
-                            );
-                          }}
-                          className="mt-1 rounded border-slate-300 text-amber-600 focus:ring-amber-500"
-                        />
-                        <div className="flex-1 min-w-0 space-y-2">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded border ${priorityColors[item.priority] || 'text-slate-600 bg-slate-100 border-slate-200'}`}>
-                            {item.priority}
-                          </span>
-                          <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded border ${statusColors[item.status] || 'text-slate-600 bg-slate-100 border-slate-200'}`}>
-                            {item.status.replace(/_/g, ' ')}
-                          </span>
-                          <SLABadge slaDeadline={item.slaDeadline || null} slaBreached={item.slaBreached || false} />
-                          {isAnalyzing && (
-                            <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 flex items-center gap-1">
-                              <Loader2 size={10} className="animate-spin" /> Analyzing…
-                            </span>
-                          )}
-                          {isDeferred && (
-                            <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                              Needs Review
-                            </span>
-                          )}
-                          {item.aiConfidence != null && item.aiConfidence > 0 && !isAnalyzing && !isDeferred && (
-                            <span className="text-[10px] font-medium text-slate-400 flex items-center gap-1">
-                              <BrainCircuit size={10} /> {Math.round(item.aiConfidence * 100)}%
-                            </span>
-                          )}
-                          <span className="text-xs text-slate-400 flex items-center gap-1">
-                            <Clock size={12} />
-                            {item.time}
-                          </span>
+                  <Link key={item.id} href={`/admin/complaints/${encodeURIComponent(item.id)}`}>
+                    <div className="bg-white p-5 rounded-xl border border-slate-200 hover:border-amber-300 hover:shadow-sm transition-all cursor-pointer group mb-3">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-3 flex-1 min-w-0">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.includes(item._id)}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              setSelectedIds(prev =>
+                                prev.includes(item._id)
+                                  ? prev.filter(id => id !== item._id)
+                                  : [...prev, item._id]
+                              );
+                            }}
+                            className="mt-1 rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+                          />
+                          <div className="flex-1 min-w-0 space-y-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded border ${priorityColors[item.priority] || 'text-slate-600 bg-slate-100 border-slate-200'}`}>
+                                {item.priority}
+                              </span>
+                              <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded border ${statusColors[item.status] || 'text-slate-600 bg-slate-100 border-slate-200'}`}>
+                                {item.status.replace(/_/g, ' ')}
+                              </span>
+                              <SLABadge slaDeadline={item.slaDeadline || null} slaBreached={item.slaBreached || false} />
+                              {isAnalyzing && (
+                                <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 flex items-center gap-1">
+                                  <Loader2 size={10} className="animate-spin" /> Analyzing…
+                                </span>
+                              )}
+                              {isDeferred && (
+                                <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                                  Needs Review
+                                </span>
+                              )}
+                              {item.aiConfidence != null && item.aiConfidence > 0 && !isAnalyzing && !isDeferred && (
+                                <span className="text-[10px] font-medium text-slate-400 flex items-center gap-1">
+                                  <BrainCircuit size={10} /> {Math.round(item.aiConfidence * 100)}%
+                                </span>
+                              )}
+                              <span className="text-xs text-slate-400 flex items-center gap-1">
+                                <Clock size={12} />
+                                {item.time}
+                              </span>
+                            </div>
+                            <h3 className="text-base font-semibold text-slate-800 group-hover:text-amber-800 transition-colors">
+                              {item.title}
+                            </h3>
+                            <p className="text-sm text-slate-500 line-clamp-2">
+                              {item.aiSummary ? (
+                                <span className="inline-flex items-center gap-1">
+                                  <BrainCircuit size={12} className="text-amber-600 shrink-0" />
+                                  {displayText}
+                                </span>
+                              ) : displayText}
+                            </p>
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs text-slate-400">{item.id}</span>
+                              <span className={`text-xs font-medium px-2 py-0.5 rounded ${item.department === 'Unassigned'
+                                  ? 'text-rose-600 bg-rose-50'
+                                  : 'text-amber-700 bg-amber-50'
+                                }`}>
+                                {item.department === 'Unassigned' ? '⚠ Unassigned' : item.department}
+                              </span>
+                              {item.assignedToName && (
+                                <span className="text-xs text-slate-400">
+                                  👤 {item.assignedToName}
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <h3 className="text-base font-semibold text-slate-800 group-hover:text-amber-800 transition-colors">
-                          {item.title}
-                        </h3>
-                        <p className="text-sm text-slate-500 line-clamp-2">
-                          {item.aiSummary ? (
-                            <span className="inline-flex items-center gap-1">
-                              <BrainCircuit size={12} className="text-amber-600 shrink-0" />
-                              {displayText}
-                            </span>
-                          ) : displayText}
-                        </p>
-                        <div className="flex items-center gap-3">
-                          <span className="text-xs text-slate-400">{item.id}</span>
-                          <span className={`text-xs font-medium px-2 py-0.5 rounded ${
-                            item.department === 'Unassigned'
-                              ? 'text-rose-600 bg-rose-50'
-                              : 'text-amber-700 bg-amber-50'
-                          }`}>
-                            {item.department === 'Unassigned' ? '⚠ Unassigned' : item.department}
-                          </span>
-                          {item.assignedToName && (
-                            <span className="text-xs text-slate-400">
-                              👤 {item.assignedToName}
-                            </span>
-                          )}
-                        </div>
+                        <ChevronRight size={20} className="text-slate-300 group-hover:text-amber-600 transition-colors mt-1 shrink-0" />
                       </div>
-                      </div>
-                      <ChevronRight size={20} className="text-slate-300 group-hover:text-amber-600 transition-colors mt-1 shrink-0" />
                     </div>
-                  </div>
-                </Link>
-              );})
+                  </Link>
+                );
+              })
             )}
           </div>
 

@@ -23,6 +23,15 @@ export default function FloatingAiChat() {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [paymentPrompt, setPaymentPrompt] = useState<{ messageId: string; consumerId: string } | null>(null);
+
+  // New Connection Form States
+  const [newConnPrompt, setNewConnPrompt] = useState<{ messageId: string } | null>(null);
+  const [ncName, setNcName] = useState('');
+  const [ncPhone, setNcPhone] = useState('');
+  const [ncAddress, setNcAddress] = useState('');
+  const [ncFile, setNcFile] = useState<File | null>(null);
+  const [ncLoading, setNcLoading] = useState(false);
+
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
@@ -76,13 +85,25 @@ export default function FloatingAiChat() {
         error?: string;
       } | null;
 
-      const assistantText = data?.data?.reply || data?.error || 'I could not process that right now. Please try again.';
+      let assistantText = data?.data?.reply || data?.error || 'I could not process that right now. Please try again.';
+
+      // Check for New Connection Action
+      const connectionMatch = assistantText.match(/\[ACTION:\s*SHOW_NEW_CONNECTION_FORM\]/i);
+      let isNewConn = false;
+      if (connectionMatch) {
+        assistantText = assistantText.replace(/\[ACTION:\s*SHOW_NEW_CONNECTION_FORM\]/i, '').trim();
+        isNewConn = true;
+      }
 
       const botMsg: ChatMessage = {
         id: `a-${Date.now()}`,
         role: 'assistant',
         text: assistantText,
       };
+
+      if (isNewConn) {
+        setNewConnPrompt({ messageId: botMsg.id });
+      }
 
       const pendingMatch = assistantText.match(/Consumer ID\s+([A-Z0-9/\-]+):\s*Pending amount is\s*₹?\d+/i);
       if (pendingMatch) {
@@ -130,6 +151,45 @@ export default function FloatingAiChat() {
     setPaymentPrompt(null);
   };
 
+  const handleNewConnectionSubmit = async () => {
+    if (!ncFile) return;
+    setNcLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', ncFile);
+      const upRes = await fetch('/api/upload', { method: 'POST', body: formData });
+      const upData = await upRes.json();
+      if (!upData.success) throw new Error(upData.error || 'Upload failed');
+
+      const res = await fetch('/api/public/new-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: ncName, phone: ncPhone, address: ncAddress, idProofUrl: upData.data.url })
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Submission failed');
+
+      setNewConnPrompt(null);
+      setMessages(prev => [
+        ...prev,
+        {
+          id: `a-${Date.now()}`,
+          role: 'assistant',
+          text: `Your new connection request has been submitted successfully.\n\nTracking ID: **${data.data.connectionId}**\n\nYou can track the status of your request at any time using the Track Complaint portal.`,
+        }
+      ]);
+      setNcName(''); setNcPhone(''); setNcAddress(''); setNcFile(null);
+    } catch (err: any) {
+      setMessages(prev => [...prev, {
+        id: `a-${Date.now()}`,
+        role: 'assistant',
+        text: `Failed to submit request: ${err.message}`
+      }]);
+    } finally {
+      setNcLoading(false);
+    }
+  };
+
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     sendMessage(input);
@@ -171,11 +231,10 @@ export default function FloatingAiChat() {
                 {messages.map(msg => (
                   <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                     <div
-                      className={`max-w-[88%] rounded-2xl px-3 py-2.5 text-base leading-7 ${
-                        msg.role === 'user'
+                      className={`max-w-[88%] rounded-2xl px-3 py-2.5 text-base leading-7 ${msg.role === 'user'
                           ? 'rounded-br-md bg-gov-blue-800 text-white'
                           : 'rounded-bl-md border border-gov-aqua-200 bg-gov-aqua-50 text-slate-800'
-                      }`}
+                        }`}
                     >
                       <p className="whitespace-pre-wrap break-words">{msg.text}</p>
                       {msg.link && (
@@ -204,6 +263,27 @@ export default function FloatingAiChat() {
                             className="rounded-lg border border-gov-blue-200 bg-white px-3 py-1.5 text-sm font-semibold text-gov-blue-800 hover:bg-gov-aqua-50"
                           >
                             No
+                          </button>
+                        </div>
+                      )}
+
+                      {newConnPrompt?.messageId === msg.id && msg.role === 'assistant' && (
+                        <div className="mt-3 flex flex-col gap-2 rounded-lg border border-gov-blue-200 bg-white p-3 text-sm text-slate-800">
+                          <p className="font-semibold text-gov-blue-900 border-b border-gov-aqua-100 pb-1 mb-1">New Water Connection</p>
+                          <input type="text" placeholder="Full Name" value={ncName} onChange={e => setNcName(e.target.value)} className="citizen-input rounded px-2 py-1.5" required disabled={ncLoading} />
+                          <input type="tel" placeholder="Mobile Number (+91...)" value={ncPhone} onChange={e => setNcPhone(e.target.value)} className="citizen-input rounded px-2 py-1.5" required disabled={ncLoading} />
+                          <textarea placeholder="Full Address" value={ncAddress} onChange={e => setNcAddress(e.target.value)} className="citizen-input rounded px-2 py-1.5" rows={2} required disabled={ncLoading} />
+                          <div className="flex flex-col gap-1">
+                            <label className="text-xs font-semibold text-slate-600">ID Proof (Aadhaar, Voter ID, etc.)</label>
+                            <input type="file" accept="image/*,.pdf" onChange={e => setNcFile(e.target.files?.[0] || null)} className="text-xs file:mr-2 file:rounded file:border-0 file:bg-gov-aqua-100 file:px-2 file:py-1 file:text-xs file:font-semibold file:text-gov-blue-800 hover:file:bg-gov-aqua-200" required disabled={ncLoading} />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleNewConnectionSubmit}
+                            disabled={ncLoading || !ncName || !ncPhone || !ncAddress || !ncFile}
+                            className="mt-1 flex justify-center items-center gap-2 rounded bg-gov-blue-800 py-1.5 font-semibold text-white transition hover:bg-gov-blue-700 disabled:opacity-50"
+                          >
+                            {ncLoading ? 'Submitting...' : 'Submit Request'}
                           </button>
                         </div>
                       )}

@@ -159,7 +159,9 @@ export default function TrackComplaintPage() {
                 <ol className="relative border-l border-slate-200 ml-3 space-y-3">
                   <li className="ml-6">
                     <span className="absolute -left-2 w-4 h-4 bg-amber-100 border-2 border-amber-500 rounded-full" />
-                    <p className="text-sm font-medium text-slate-700">Complaint Submitted</p>
+                    <p className="text-sm font-medium text-slate-700">
+                      {result.complaintId?.startsWith('PHED/') ? 'Request Submitted' : 'Complaint Submitted'}
+                    </p>
                     <p className="text-xs text-slate-400">{fmtDate(result.createdAt)}</p>
                   </li>
                   {result.aiAnalysis?.department && (

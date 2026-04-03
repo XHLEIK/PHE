@@ -1,25 +1,3 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "crons": [
-    {
-      "path": "/api/admin/cron/sla-check",
-      "schedule": "0 */6 * * *"
-    },
-    {
-      "path": "/api/admin/cron/sla-warning",
-      "schedule": "0 */6 * * *"
-    },
-    {
-      "path": "/api/admin/cron/stale-complaints",
-      "schedule": "0 */12 * * *"
-    },
-    {
-      "path": "/api/admin/cron/data-retention",
-      "schedule": "0 3 * * 0"
-    },
-    {
-      "path": "/api/calls/process-scheduled",
-      "schedule": "* * * * *"
-    }
-  ]
+  "$schema": "https://openapi.vercel.sh/vercel.json"
 }
