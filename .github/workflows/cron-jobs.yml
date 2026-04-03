@@ -23,7 +23,7 @@ jobs:
           set -e
 
           call_api () {
-            curl -fsS "${CRON_BASE_URL}$1?key=${CRON_SECRET}"
+            curl -fsS -H "Authorization: Bearer ${CRON_SECRET}" "${CRON_BASE_URL}$1"
           }
 
           if [ "$CRON_EXPR" = "* * * * *" ]; then
