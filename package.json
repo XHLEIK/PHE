@@ -7,6 +7,7 @@
     "agent": "python lib/agent.py dev",
     "build": "next build",
     "start": "next start",
+    "start:all": "concurrently \"npm start\" \"./venv/bin/python lib/agent.py start\"",
     "lint": "next lint",
     "seed:departments": "npx tsx scripts/seed-departments.ts",
     "seed:admin": "npx tsx scripts/seed-admin.ts",

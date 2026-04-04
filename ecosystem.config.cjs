@@ -1,7 +1,7 @@
 /**
  * PM2 Ecosystem Configuration
  * 
- * This file configures PM2 to manage both the Next.js app and the LiveKit Python agent.
+ * Single process running both Next.js and Python agent via concurrently.
  * 
  * Usage:
  *   pm2 start ecosystem.config.cjs
@@ -21,9 +21,9 @@ const LOG_DIR = path.join(APP_DIR, 'logs');
 module.exports = {
   apps: [
     {
-      name: 'phe-nextjs',
+      name: 'phe-app',
       script: 'npm',
-      args: 'start',
+      args: 'run start:all',
       cwd: APP_DIR,
       instances: 1,
       exec_mode: 'fork',
@@ -35,44 +35,16 @@ module.exports = {
         PORT: 3000,
       },
       // Graceful shutdown
-      kill_timeout: 5000,
-      wait_ready: true,
-      listen_timeout: 10000,
+      kill_timeout: 10000,
       // Logging
-      error_file: path.join(LOG_DIR, 'nextjs-error.log'),
-      out_file: path.join(LOG_DIR, 'nextjs-out.log'),
+      error_file: path.join(LOG_DIR, 'app-error.log'),
+      out_file: path.join(LOG_DIR, 'app-out.log'),
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       merge_logs: true,
       // Restart policy
       exp_backoff_restart_delay: 100,
       max_restarts: 10,
       restart_delay: 1000,
-    },
-    {
-      name: 'phe-agent',
-      script: path.join(APP_DIR, 'lib', 'agent.py'),
-      args: 'start',
-      cwd: APP_DIR,
-      interpreter: path.join(APP_DIR, 'venv', 'bin', 'python'),
-      instances: 1,
-      exec_mode: 'fork',
-      autorestart: true,
-      watch: false,
-      max_memory_restart: '512M',
-      env: {
-        PYTHONUNBUFFERED: '1',
-      },
-      // Graceful shutdown (longer for agent to disconnect from LiveKit)
-      kill_timeout: 10000,
-      // Logging
-      error_file: path.join(LOG_DIR, 'agent-error.log'),
-      out_file: path.join(LOG_DIR, 'agent-out.log'),
-      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
-      merge_logs: true,
-      // Restart policy
-      exp_backoff_restart_delay: 100,
-      max_restarts: 10,
-      restart_delay: 2000,
     },
   ],
 };

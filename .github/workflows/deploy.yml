@@ -126,9 +126,13 @@ jobs:
             deactivate
             echo "Python dependencies installed in venv"
             
-            echo "=== Restarting PM2 processes ==="
+            echo "=== Cleaning up old PM2 processes ==="
+            pm2 delete phe-nextjs 2>/dev/null || true
             pm2 delete phe-agent 2>/dev/null || true
-            pm2 reload ecosystem.config.cjs --update-env 2>/dev/null || pm2 start ecosystem.config.cjs
+            
+            echo "=== Restarting phe-app ==="
+            pm2 delete phe-app 2>/dev/null || true
+            pm2 start ecosystem.config.cjs
             pm2 save
             
             echo "=== Deployment complete ==="
