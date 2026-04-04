@@ -77,6 +77,10 @@ fi
 # Backup Current Build (for rollback)
 # ============================================================================
 
+# Store current commit hash for rollback reference FIRST
+PREVIOUS_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
+echo "$PREVIOUS_COMMIT" > "$BACKUP_DIR/previous_commit.txt"
+
 log "Creating backup of current build..."
 if [ -d ".next" ]; then
     rm -rf "$BACKUP_DIR/.next.bak"
@@ -86,29 +90,18 @@ else
     log_warning "No existing .next directory to backup"
 fi
 
-# Store current commit hash for rollback reference
-PREVIOUS_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
-echo "$PREVIOUS_COMMIT" > "$BACKUP_DIR/previous_commit.txt"
-
 # ============================================================================
-# Pull Latest Code
+# Sync Code Status
 # ============================================================================
-
-log "Pulling latest code from GitHub..."
-
-# Stash any local changes (shouldn't be any in production)
-git stash --include-untracked 2>/dev/null || true
-
-# Fetch and reset to origin/main
-git fetch origin main
-git reset --hard origin/main
 
 NEW_COMMIT=$(git rev-parse HEAD)
-log_success "Updated to commit: $NEW_COMMIT"
+log_success "Current commit: $NEW_COMMIT"
 
-# Show what changed
-log "Changes in this deployment:"
-git log --oneline "$PREVIOUS_COMMIT".."$NEW_COMMIT" 2>/dev/null | head -10 | tee -a "$DEPLOY_LOG" || true
+# Show what changed (if any)
+if [ "$PREVIOUS_COMMIT" != "unknown" ] && [ "$PREVIOUS_COMMIT" != "$NEW_COMMIT" ]; then
+  log "Changes in this deployment:"
+  git log --oneline "$PREVIOUS_COMMIT".."$NEW_COMMIT" 2>/dev/null | head -10 | tee -a "$DEPLOY_LOG" || true
+fi
 
 # ============================================================================
 # Install Dependencies
@@ -116,9 +109,17 @@ git log --oneline "$PREVIOUS_COMMIT".."$NEW_COMMIT" 2>/dev/null | head -10 | tee
 
 log "Checking for dependency changes..."
 
-# Check if package-lock.json changed
-if git diff --name-only "$PREVIOUS_COMMIT" "$NEW_COMMIT" 2>/dev/null | grep -q "package-lock.json"; then
-    log "package-lock.json changed, running npm ci..."
+# Check if package-lock.json changed between commits
+DEPS_CHANGED=false
+if [ "$PREVIOUS_COMMIT" != "unknown" ] && [ "$PREVIOUS_COMMIT" != "$NEW_COMMIT" ]; then
+    if git diff --name-only "$PREVIOUS_COMMIT" "$NEW_COMMIT" 2>/dev/null | grep -q "package-lock.json"; then
+        DEPS_CHANGED=true
+    fi
+fi
+
+# Always run npm ci on first deployment or if deps changed
+if [ "$DEPS_CHANGED" = true ] || [ ! -d "node_modules" ]; then
+    log "Installing Node.js dependencies..."
     npm ci --production=false
     log_success "Node dependencies installed"
 else
@@ -126,8 +127,15 @@ else
 fi
 
 # Check if requirements.txt changed
-if git diff --name-only "$PREVIOUS_COMMIT" "$NEW_COMMIT" 2>/dev/null | grep -q "requirements.txt"; then
-    log "requirements.txt changed, updating Python dependencies..."
+PY_DEPS_CHANGED=false
+if [ "$PREVIOUS_COMMIT" != "unknown" ] && [ "$PREVIOUS_COMMIT" != "$NEW_COMMIT" ]; then
+    if git diff --name-only "$PREVIOUS_COMMIT" "$NEW_COMMIT" 2>/dev/null | grep -q "requirements.txt"; then
+        PY_DEPS_CHANGED=true
+    fi
+fi
+
+if [ "$PY_DEPS_CHANGED" = true ]; then
+    log "Updating Python dependencies..."
     pip install -r requirements.txt --quiet || pip3 install -r requirements.txt --quiet
     log_success "Python dependencies installed"
 else
