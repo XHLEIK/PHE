@@ -10,13 +10,21 @@
  *   pm2 delete all
  */
 
+const os = require('os');
+const path = require('path');
+
+// Dynamic paths - works for any user
+const HOME_DIR = os.homedir();
+const APP_DIR = path.join(HOME_DIR, 'PHE');
+const LOG_DIR = path.join(APP_DIR, 'logs');
+
 module.exports = {
   apps: [
     {
       name: 'phe-nextjs',
       script: 'npm',
       args: 'start',
-      cwd: '/home/azureuser/PHE',
+      cwd: APP_DIR,
       instances: 1,
       exec_mode: 'fork',
       autorestart: true,
@@ -31,8 +39,8 @@ module.exports = {
       wait_ready: true,
       listen_timeout: 10000,
       // Logging
-      error_file: '/home/azureuser/PHE/logs/nextjs-error.log',
-      out_file: '/home/azureuser/PHE/logs/nextjs-out.log',
+      error_file: path.join(LOG_DIR, 'nextjs-error.log'),
+      out_file: path.join(LOG_DIR, 'nextjs-out.log'),
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       merge_logs: true,
       // Restart policy
@@ -44,7 +52,7 @@ module.exports = {
       name: 'phe-agent',
       script: 'python',
       args: 'lib/agent.py start',
-      cwd: '/home/azureuser/PHE',
+      cwd: APP_DIR,
       interpreter: 'none',  // Don't use Node to interpret Python
       instances: 1,
       exec_mode: 'fork',
@@ -57,8 +65,8 @@ module.exports = {
       // Graceful shutdown (longer for agent to disconnect from LiveKit)
       kill_timeout: 10000,
       // Logging
-      error_file: '/home/azureuser/PHE/logs/agent-error.log',
-      out_file: '/home/azureuser/PHE/logs/agent-out.log',
+      error_file: path.join(LOG_DIR, 'agent-error.log'),
+      out_file: path.join(LOG_DIR, 'agent-out.log'),
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       merge_logs: true,
       // Restart policy

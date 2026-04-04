@@ -19,7 +19,7 @@ set -e  # Exit on any error
 # ============================================================================
 # Configuration
 # ============================================================================
-APP_DIR="/home/azureuser/PHE"
+APP_DIR="${HOME}/PHE"
 LOG_DIR="$APP_DIR/logs"
 DEPLOY_LOG="$LOG_DIR/deploy.log"
 BACKUP_DIR="$APP_DIR/.deploy-backup"
