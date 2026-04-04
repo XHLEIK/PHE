@@ -21,18 +21,18 @@ const LOG_DIR = path.join(APP_DIR, 'logs');
 module.exports = {
   apps: [
     // ─────────────────────────────────────────────────────────────────
-    // Next.js App (2 instances with load balancing)
+    // Next.js App - Instance 1 (Port 3000)
     // ─────────────────────────────────────────────────────────────────
     {
-      name: 'phe-nextjs',
+      name: 'phe-nextjs-3000',
       script: 'npm',
       args: 'start',
       cwd: APP_DIR,
-      instances: 2,  // 2 instances for load balancing
-      exec_mode: 'cluster',  // Cluster mode for automatic load balancing
+      instances: 1,
+      exec_mode: 'fork',
       env: {
         NODE_ENV: 'production',
-        PORT: 3000,  // PM2 will auto-increment: 3000, 3001
+        PORT: 3000,
       },
       autorestart: true,
       watch: false,
@@ -44,10 +44,43 @@ module.exports = {
       listen_timeout: 10000,
       
       // Logging
-      error_file: path.join(LOG_DIR, 'nextjs-error.log'),
-      out_file: path.join(LOG_DIR, 'nextjs-out.log'),
+      error_file: path.join(LOG_DIR, 'nextjs-3000-error.log'),
+      out_file: path.join(LOG_DIR, 'nextjs-3000-out.log'),
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
-      merge_logs: true,
+      
+      // Restart policy
+      exp_backoff_restart_delay: 100,
+      max_restarts: 10,
+      restart_delay: 1000,
+    },
+    
+    // ─────────────────────────────────────────────────────────────────
+    // Next.js App - Instance 2 (Port 3001)
+    // ─────────────────────────────────────────────────────────────────
+    {
+      name: 'phe-nextjs-3001',
+      script: 'npm',
+      args: 'start',
+      cwd: APP_DIR,
+      instances: 1,
+      exec_mode: 'fork',
+      env: {
+        NODE_ENV: 'production',
+        PORT: 3001,
+      },
+      autorestart: true,
+      watch: false,
+      max_memory_restart: '800M',
+      
+      // Graceful shutdown
+      kill_timeout: 5000,
+      wait_ready: true,
+      listen_timeout: 10000,
+      
+      // Logging
+      error_file: path.join(LOG_DIR, 'nextjs-3001-error.log'),
+      out_file: path.join(LOG_DIR, 'nextjs-3001-out.log'),
+      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       
       // Restart policy
       exp_backoff_restart_delay: 100,
