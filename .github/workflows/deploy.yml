@@ -1,0 +1,49 @@
+name: Deploy to Azure VM
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    
+    # Prevent concurrent deployments
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Azure VM via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.AZURE_VM_HOST }}
+          username: ${{ secrets.AZURE_VM_USERNAME }}
+          key: ${{ secrets.AZURE_VM_SSH_KEY }}
+          port: ${{ secrets.AZURE_VM_SSH_PORT || 22 }}
+          script_stop: true
+          script: |
+            cd ~/PHE
+            chmod +x deploy.sh
+            ./deploy.sh
+
+      - name: Notify deployment success
+        if: success()
+        run: |
+          echo "✅ Deployment successful!"
+          echo "Deployed commit: ${{ github.sha }}"
+          echo "Deployed by: ${{ github.actor }}"
+          echo "Time: $(date)"
+
+      - name: Notify deployment failure
+        if: failure()
+        run: |
+          echo "❌ Deployment failed!"
+          echo "Failed commit: ${{ github.sha }}"
+          echo "Check the logs above for details."

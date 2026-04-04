@@ -149,16 +149,44 @@ export async function initiateCall(
     await agentClient.createDispatch(roomName, 'Sam', { metadata });
     console.log(`[CALL-SCHEDULER] 🤖 Agent "Sam" dispatched to room ${roomName}`);
 
-    // Small delay to let agent join before dialing citizen
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // 3. Wait for agent to join the room (poll with timeout)
+    const agentJoinTimeout = 15000; // 15 seconds max
+    const pollInterval = 1000; // Check every second
+    const startTime = Date.now();
+    let agentJoined = false;
 
-    // 3. Format phone number for SIP (ensure +91 prefix for Indian numbers)
+    while (Date.now() - startTime < agentJoinTimeout) {
+      try {
+        const participants = await roomService.listParticipants(roomName);
+        // Look for the agent participant (identity starts with "agent-" or name is "Sam")
+        agentJoined = participants.some(p => 
+          p.identity?.startsWith('agent-') || 
+          p.name === 'Sam' ||
+          p.identity === 'Sam'
+        );
+        if (agentJoined) {
+          console.log(`[CALL-SCHEDULER] ✅ Agent joined room ${roomName} after ${Date.now() - startTime}ms`);
+          break;
+        }
+      } catch {
+        // Room might not be fully ready yet, continue polling
+      }
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+    }
+
+    if (!agentJoined) {
+      console.warn(`[CALL-SCHEDULER] ⚠️ Agent did not join within ${agentJoinTimeout}ms, proceeding anyway...`);
+      // Add extra delay as fallback
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    }
+
+    // 4. Format phone number for SIP (ensure +91 prefix for Indian numbers)
     let phoneNumber = complaint.submitterPhone.trim();
     if (!phoneNumber.startsWith('+')) {
       phoneNumber = '+91' + phoneNumber;
     }
 
-    // 4. Create SIP participant — this dials the citizen's phone
+    // 5. Create SIP participant — this dials the citizen's phone
     const sipClient = new SipClient(LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET);
     await sipClient.createSipParticipant(
       LIVEKIT_SIP_TRUNK_ID,
@@ -277,6 +305,20 @@ export async function scheduleCall(complaintId: string, delayMinutes = 0): Promi
 
     if (isImmediate) {
       console.log(`[CALL-SCHEDULER] ⚡ Immediate dispatch for ${complaintId}`);
+
+      // Health check before immediate dispatch (agent must be available)
+      const agentHealthy = await checkAgentHealth();
+      if (!agentHealthy) {
+        console.warn(`[CALL-SCHEDULER] Agent health check failed for immediate dispatch. Deferring ${complaintId}`);
+        // Defer to cron (schedule for 1 minute later)
+        await Complaint.findByIdAndUpdate(complaint._id, {
+          $set: {
+            callStatus: 'scheduled',
+            callScheduledAt: new Date(Date.now() + 60 * 1000),
+          },
+        });
+        return;
+      }
 
       // Mark in_progress right away (acts as distributed lock)
       await Complaint.findByIdAndUpdate(complaint._id, {
