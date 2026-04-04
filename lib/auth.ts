@@ -70,13 +70,15 @@ export function hashToken(token: string): string {
 // ---------------------------------------------------------------------------
 export function getAccessTokenCookieOptions(): string {
   const maxAge = 15 * 60; // 15 minutes in seconds
-  const secure = process.env.NODE_ENV === 'production';
+  // Only use Secure flag if HTTPS is available (check HTTPS_ENABLED env var)
+  const secure = process.env.NODE_ENV === 'production' && process.env.HTTPS_ENABLED === 'true';
   return `access_token={TOKEN}; HttpOnly; ${secure ? 'Secure; ' : ''}SameSite=Strict; Path=/; Max-Age=${maxAge}`;
 }
 
 export function getRefreshTokenCookieOptions(): string {
   const maxAge = 7 * 24 * 60 * 60; // 7 days in seconds
-  const secure = process.env.NODE_ENV === 'production';
+  // Only use Secure flag if HTTPS is available (check HTTPS_ENABLED env var)
+  const secure = process.env.NODE_ENV === 'production' && process.env.HTTPS_ENABLED === 'true';
   return `refresh_token={TOKEN}; HttpOnly; ${secure ? 'Secure; ' : ''}SameSite=Strict; Path=/api/auth; Max-Age=${maxAge}`;
 }
 
@@ -94,7 +96,8 @@ export function setCitizenCookies(
   accessToken: string,
   refreshToken: string
 ): string[] {
-  const secure = process.env.NODE_ENV === 'production';
+  // Only use Secure flag if HTTPS is available (check HTTPS_ENABLED env var)
+  const secure = process.env.NODE_ENV === 'production' && process.env.HTTPS_ENABLED === 'true';
   const securePart = secure ? 'Secure; ' : '';
   return [
     `citizen_access_token=${accessToken}; HttpOnly; ${securePart}SameSite=Strict; Path=/; Max-Age=900`,
