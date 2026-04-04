@@ -35,7 +35,13 @@ jobs:
       # 3. Create .env.production from secret
       # ─────────────────────────────────────────────────────────────────
       - name: Create environment file
-        run: echo "${{ secrets.ENV_PRODUCTION }}" > .env.production
+        env:
+          ENV_PRODUCTION: ${{ secrets.ENV_PRODUCTION }}
+        run: |
+          echo "$ENV_PRODUCTION" > .env.production
+          echo "Created .env.production with $(wc -l < .env.production) lines"
+          # Debug: show first few var names (not values)
+          grep -oP '^[A-Z_]+=' .env.production | head -5 || echo "No vars found"
 
       # ─────────────────────────────────────────────────────────────────
       # 4. Install dependencies
