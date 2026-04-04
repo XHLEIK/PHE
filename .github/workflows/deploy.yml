@@ -32,13 +32,19 @@ jobs:
           cache: 'npm'
 
       # ─────────────────────────────────────────────────────────────────
-      # 3. Install dependencies
+      # 3. Create .env.production from secret
+      # ─────────────────────────────────────────────────────────────────
+      - name: Create environment file
+        run: echo "${{ secrets.ENV_PRODUCTION }}" > .env.production
+
+      # ─────────────────────────────────────────────────────────────────
+      # 4. Install dependencies
       # ─────────────────────────────────────────────────────────────────
       - name: Install dependencies
         run: npm ci
 
       # ─────────────────────────────────────────────────────────────────
-      # 4. Build Next.js (on GitHub's powerful runners - 7GB RAM)
+      # 5. Build Next.js (on GitHub's powerful runners - 7GB RAM)
       # ─────────────────────────────────────────────────────────────────
       - name: Build Next.js
         run: npm run build
@@ -46,7 +52,7 @@ jobs:
           NODE_ENV: production
 
       # ─────────────────────────────────────────────────────────────────
-      # 5. Create deployment package (only essential files)
+      # 6. Create deployment package (only essential files)
       # ─────────────────────────────────────────────────────────────────
       - name: Create deployment package
         run: |
@@ -66,7 +72,7 @@ jobs:
           ls -lh deploy.tar.gz
 
       # ─────────────────────────────────────────────────────────────────
-      # 6. Copy deployment package to Azure VM
+      # 7. Copy deployment package to Azure VM
       # ─────────────────────────────────────────────────────────────────
       - name: Copy to server
         uses: appleboy/scp-action@v0.1.7
@@ -80,7 +86,7 @@ jobs:
           overwrite: true
 
       # ─────────────────────────────────────────────────────────────────
-      # 7. Deploy on server (extract + install deps + restart PM2)
+      # 8. Deploy on server (extract + install deps + restart PM2)
       # ─────────────────────────────────────────────────────────────────
       - name: Deploy on server
         uses: appleboy/ssh-action@v1.0.3
@@ -115,7 +121,7 @@ jobs:
             pm2 list
 
       # ─────────────────────────────────────────────────────────────────
-      # 8. Deployment status notifications
+      # 9. Deployment status notifications
       # ─────────────────────────────────────────────────────────────────
       - name: Deployment successful
         if: success()
