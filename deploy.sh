@@ -32,6 +32,10 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# Create directories FIRST (before any logging can happen)
+mkdir -p "$LOG_DIR"
+mkdir -p "$BACKUP_DIR"
+
 # ============================================================================
 # Helper Functions
 # ============================================================================
@@ -62,10 +66,6 @@ log "=============================================="
 
 # Ensure we're in the right directory
 cd "$APP_DIR" || { log_error "Failed to cd to $APP_DIR"; exit 1; }
-
-# Create logs directory if it doesn't exist
-mkdir -p "$LOG_DIR"
-mkdir -p "$BACKUP_DIR"
 
 # Check if PM2 is running
 if ! command -v pm2 &> /dev/null; then
