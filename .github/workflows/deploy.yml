@@ -63,6 +63,7 @@ jobs:
       - name: Create deployment package
         run: |
           tar -czf deploy.tar.gz \
+            --exclude='.next/cache' \
             .next \
             public \
             package.json \
@@ -71,8 +72,7 @@ jobs:
             next.config.mjs \
             lib \
             requirements.txt \
-            .env.production \
-            --exclude='.next/cache'
+            .env.production
           
           echo "📦 Deployment package created:"
           ls -lh deploy.tar.gz
