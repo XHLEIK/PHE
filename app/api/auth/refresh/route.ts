@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const isProduction = process.env.NODE_ENV === 'production';
+    const isProduction = process.env.NODE_ENV === 'production' && process.env.HTTPS_ENABLED === 'true';
     const securePart = isProduction ? 'Secure; ' : '';
 
     const response = successResponse({ message: 'Tokens refreshed' });
