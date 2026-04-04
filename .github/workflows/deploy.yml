@@ -4,60 +4,130 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:  # Allow manual trigger
+  workflow_dispatch:
 
 jobs:
-  deploy:
-    name: Deploy to Production
+  build-and-deploy:
+    name: Build and Deploy to Production
     runs-on: ubuntu-latest
     
-    # Prevent concurrent deployments
     concurrency:
       group: production-deploy
       cancel-in-progress: false
 
     steps:
+      # ─────────────────────────────────────────────────────────────────
+      # 1. Checkout code
+      # ─────────────────────────────────────────────────────────────────
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy to Azure VM via SSH
+      # ─────────────────────────────────────────────────────────────────
+      # 2. Setup Node.js with dependency caching
+      # ─────────────────────────────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # ─────────────────────────────────────────────────────────────────
+      # 3. Install dependencies
+      # ─────────────────────────────────────────────────────────────────
+      - name: Install dependencies
+        run: npm ci
+
+      # ─────────────────────────────────────────────────────────────────
+      # 4. Build Next.js (on GitHub's powerful runners - 7GB RAM)
+      # ─────────────────────────────────────────────────────────────────
+      - name: Build Next.js
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+      # ─────────────────────────────────────────────────────────────────
+      # 5. Create deployment package (only essential files)
+      # ─────────────────────────────────────────────────────────────────
+      - name: Create deployment package
+        run: |
+          tar -czf deploy.tar.gz \
+            .next \
+            public \
+            package.json \
+            package-lock.json \
+            ecosystem.config.cjs \
+            next.config.mjs \
+            lib \
+            requirements.txt \
+            .env.production \
+            --exclude='.next/cache'
+          
+          echo "📦 Deployment package created:"
+          ls -lh deploy.tar.gz
+
+      # ─────────────────────────────────────────────────────────────────
+      # 6. Copy deployment package to Azure VM
+      # ─────────────────────────────────────────────────────────────────
+      - name: Copy to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.AZURE_VM_HOST }}
+          username: ${{ secrets.AZURE_VM_USERNAME }}
+          key: ${{ secrets.AZURE_VM_SSH_KEY }}
+          port: 22
+          source: "deploy.tar.gz"
+          target: "~/PHE"
+          overwrite: true
+
+      # ─────────────────────────────────────────────────────────────────
+      # 7. Deploy on server (extract + install deps + restart PM2)
+      # ─────────────────────────────────────────────────────────────────
+      - name: Deploy on server
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.AZURE_VM_HOST }}
           username: ${{ secrets.AZURE_VM_USERNAME }}
           key: ${{ secrets.AZURE_VM_SSH_KEY }}
           port: 22
-          script_stop: true
-          command_timeout: 30m
+          command_timeout: 10m
           script: |
             set -e
-            
-            echo "=== Starting deployment ==="
             cd ~/PHE
             
-            # Pull latest code first (this brings deploy.sh to the server)
-            echo "Pulling latest code..."
-            git fetch origin main
-            git reset --hard origin/main
+            echo "=== Extracting deployment package ==="
+            tar -xzf deploy.tar.gz
+            rm deploy.tar.gz
             
-            # Create logs directory
+            echo "=== Creating logs directory ==="
             mkdir -p logs
             
-            # Make deploy script executable and run it
-            chmod +x deploy.sh
-            ./deploy.sh
+            echo "=== Installing production dependencies ==="
+            npm ci --omit=dev
+            
+            echo "=== Installing Python dependencies ==="
+            pip install -r requirements.txt --quiet 2>/dev/null || pip3 install -r requirements.txt --quiet 2>/dev/null || echo "Python deps skipped"
+            
+            echo "=== Restarting PM2 processes ==="
+            pm2 reload ecosystem.config.cjs --update-env 2>/dev/null || pm2 start ecosystem.config.cjs
+            pm2 save
+            
+            echo "=== Deployment complete ==="
+            pm2 list
 
-      - name: Notify deployment success
+      # ─────────────────────────────────────────────────────────────────
+      # 8. Deployment status notifications
+      # ─────────────────────────────────────────────────────────────────
+      - name: Deployment successful
         if: success()
         run: |
           echo "✅ Deployment successful!"
-          echo "Deployed commit: ${{ github.sha }}"
-          echo "Deployed by: ${{ github.actor }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "By: ${{ github.actor }}"
           echo "Time: $(date)"
 
-      - name: Notify deployment failure
+      - name: Deployment failed
         if: failure()
         run: |
           echo "❌ Deployment failed!"
-          echo "Failed commit: ${{ github.sha }}"
-          echo "Check the logs above for details."
+          echo "Commit: ${{ github.sha }}"
+          echo "Check logs above for details."
