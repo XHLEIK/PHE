@@ -59,6 +59,7 @@ jobs:
 
       # ─────────────────────────────────────────────────────────────────
       # 6. Create deployment package (only essential files)
+      # NOTE: .env.production is NOT included - VM maintains its own copy
       # ─────────────────────────────────────────────────────────────────
       - name: Create deployment package
         run: |
@@ -71,8 +72,7 @@ jobs:
             ecosystem.config.cjs \
             next.config.mjs \
             lib \
-            requirements.txt \
-            .env.production
+            requirements.txt
           
           echo "📦 Deployment package created:"
           ls -lh deploy.tar.gz
