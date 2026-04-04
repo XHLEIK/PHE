@@ -50,8 +50,10 @@ from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 logger = logging.getLogger("agent-Sam")
 
-# Load .env.local from project root (one level above lib/)
+# Load environment variables from project root (one level above lib/)
 _project_root = Path(__file__).resolve().parent.parent
+# Try .env.production first (for production deployments), then fall back to .env.local (dev)
+load_dotenv(_project_root / ".env.production")
 load_dotenv(_project_root / ".env.local")
 
 # Backend API configuration
