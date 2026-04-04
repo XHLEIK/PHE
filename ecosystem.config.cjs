@@ -50,10 +50,10 @@ module.exports = {
     },
     {
       name: 'phe-agent',
-      script: 'python',
-      args: 'lib/agent.py start',
+      script: path.join(APP_DIR, 'lib', 'agent.py'),
+      args: 'start',
       cwd: APP_DIR,
-      interpreter: 'none',  // Don't use Node to interpret Python
+      interpreter: path.join(APP_DIR, 'venv', 'bin', 'python'),
       instances: 1,
       exec_mode: 'fork',
       autorestart: true,

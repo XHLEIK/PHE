@@ -116,10 +116,18 @@ jobs:
             echo "=== Installing production dependencies ==="
             npm ci --omit=dev
             
-            echo "=== Installing Python dependencies ==="
-            pip install -r requirements.txt --quiet 2>/dev/null || pip3 install -r requirements.txt --quiet 2>/dev/null || echo "Python deps skipped"
+            echo "=== Setting up Python virtual environment ==="
+            if [ ! -d "venv" ]; then
+              python3 -m venv venv
+              echo "Created new virtual environment"
+            fi
+            source venv/bin/activate
+            pip install -r requirements.txt --quiet
+            deactivate
+            echo "Python dependencies installed in venv"
             
             echo "=== Restarting PM2 processes ==="
+            pm2 delete phe-agent 2>/dev/null || true
             pm2 reload ecosystem.config.cjs --update-env 2>/dev/null || pm2 start ecosystem.config.cjs
             pm2 save
             
