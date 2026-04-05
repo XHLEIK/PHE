@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Build response with httpOnly cookies
-    const isProduction = process.env.NODE_ENV === 'production';
+    const isProduction = process.env.NODE_ENV === 'production' && process.env.HTTPS_ENABLED === 'true';
     const securePart = isProduction ? 'Secure; ' : '';
 
     const response = successResponse({

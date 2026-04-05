@@ -101,13 +101,16 @@ module.exports = {
       exec_mode: 'fork',
       env: {
         PYTHONUNBUFFERED: '1',
+        AGENT_HTTP_PORT: '8082',  // Health check server port (avoid conflicts)
       },
       autorestart: true,
       watch: false,
       max_memory_restart: '512M',
       
       // Graceful shutdown (longer for agent to disconnect from LiveKit)
-      kill_timeout: 10000,
+      kill_timeout: 15000,           // Give 15s to cleanup before SIGKILL
+      shutdown_with_message: true,   // Send SIGTERM first
+      treekill: true,                // Kill entire process tree
       
       // Logging
       error_file: path.join(LOG_DIR, 'agent-error.log'),
@@ -115,10 +118,11 @@ module.exports = {
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       merge_logs: true,
       
-      // Restart policy
-      exp_backoff_restart_delay: 100,
+      // Restart policy - longer delays to allow port release
+      exp_backoff_restart_delay: 1000,  // Start with 1s, exponentially increase
       max_restarts: 10,
-      restart_delay: 2000,
+      restart_delay: 5000,              // Wait 5s before restart
+      min_uptime: 10000,                // Must stay up 10s to be considered "started"
     },
   ],
 };

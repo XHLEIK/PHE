@@ -22,9 +22,6 @@ Notes:
 import json
 import logging
 import os
-import time
-import threading
-from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from typing import Any
 
@@ -393,7 +390,9 @@ class DefaultAgent(Agent):
 # ---------------------------------------------------------------------------
 # Server setup
 # ---------------------------------------------------------------------------
-server = AgentServer()
+# Use port 8082 for the health check server to avoid conflicts
+AGENT_HTTP_PORT = int(os.getenv("AGENT_HTTP_PORT", "8082"))
+server = AgentServer(port=AGENT_HTTP_PORT)
 
 
 def prewarm(proc: JobProcess):
@@ -455,44 +454,10 @@ async def entrypoint(ctx: JobContext):
 
 
 # ---------------------------------------------------------------------------
-# Health check endpoint (checked by scheduler before dispatching calls)
-# ---------------------------------------------------------------------------
-_start_time = time.time()
-
-
-class HealthHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        if self.path == "/health":
-            uptime = int(time.time() - _start_time)
-            body = json.dumps({
-                "status": "ok",
-                "agent": "Sam",
-                "version": "2.0",
-                "uptime": uptime,
-                "tools": ["mark_resolved", "mark_escalated", "mark_declined"],
-            })
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(body.encode())
-        else:
-            self.send_response(404)
-            self.end_headers()
-
-    def log_message(self, format, *args):
-        pass  # Suppress noisy HTTP logs
-
-
-def start_health_server(port: int = 8081):
-    httpd = HTTPServer(("0.0.0.0", port), HealthHandler)
-    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
-    thread.start()
-    logger.info(f"Health check server running on port {port}")
-
-
-# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
+# Note: LiveKit AgentServer has its own built-in health check endpoint
+# Configure port via LIVEKIT_AGENT_PORT env var or --port CLI arg
+# Default production port is 8081 but we use 8082 to avoid conflicts
 if __name__ == "__main__":
-    start_health_server()
     cli.run_app(server)
