@@ -56,6 +56,14 @@ export interface IComplaint extends Document {
   lastCallAt: Date | null;
   callScheduledAt: Date | null;
   callConsent: boolean;
+  // AI Incident Deduplication & Regional Analytics
+  incidentKey: string | null;
+  complaintCount: number;
+  subscribers: {
+    userId: string | null;
+    phone: string | null;
+    email: string | null;
+  }[];
   // Legacy fields kept for backward compatibility
   aiAnalyzed: boolean;
   aiAnalysisResult: Record<string, unknown> | null;
@@ -259,6 +267,28 @@ const ComplaintSchema = new Schema<IComplaint>(
     callConsent: {
       type: Boolean,
       default: false,
+    },
+    incidentKey: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    complaintCount: {
+      type: Number,
+      default: 1,
+    },
+    subscribers: {
+      type: [
+        new Schema(
+          {
+            userId: { type: String, default: null },
+            phone: { type: String, default: null },
+            email: { type: String, default: null },
+          },
+          { _id: false }
+        ),
+      ],
+      default: [],
     },
     // Legacy tracking IDs (preserved during migration)
     legacyIds: {

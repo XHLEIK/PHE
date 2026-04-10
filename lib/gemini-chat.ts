@@ -7,6 +7,7 @@
  */
 
 import { fetchWithGeminiKeyRotation } from './gemini-keys';
+import { getAICache, setAICache } from './redis';
 
 const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
@@ -85,6 +86,15 @@ export async function getChatResponse(
   conversationHistory: ChatHistoryEntry[],
   userMessage: string
 ): Promise<{ reply: string; error?: string }> {
+  // Check AI response cache if it's just a single question without huge history
+  const normalizedQuery = userMessage.trim().toLowerCase().replace(/\s+/g, '_');
+  if (conversationHistory.length < 4) {
+    const cachedReply = await getAICache(normalizedQuery);
+    if (cachedReply) {
+      return { reply: cachedReply };
+    }
+  }
+
   const systemInstruction = buildSystemInstruction(complaint);
 
   // Build the full conversation for Gemini
@@ -137,6 +147,10 @@ export async function getChatResponse(
         reply: '',
         error: 'AI could not generate a response. Please try rephrasing your question or call the helpdesk at 1800-345-3601.',
       };
+    }
+
+    if (conversationHistory.length < 4) {
+      await setAICache(normalizedQuery, text.trim());
     }
 
     return { reply: text.trim() };

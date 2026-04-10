@@ -110,29 +110,22 @@ export async function POST(req: NextRequest) {
       ipAddress: ip,
     });
 
-    // Respond immediately — do NOT await AI analysis
-    const response = successResponse(
-      {
-        complaintId: complaint.complaintId,
-        message: 'Complaint submitted successfully. Your reference ID is ' + complaint.complaintId,
-        status: complaint.status,
-      },
-      undefined,
-      201
-    );
-
     // Fire-and-forget AI analysis — structured so a queue worker can replace this call
-    // without any other code changes (processAnalysis is a standalone function)
-    setImmediate(() => {
-      processAnalysis(complaint.complaintId).catch(err => {
-        console.error('[COMPLAINT POST] Fire-and-forget analysis error:', err);
-      });
-      // Invalidate dashboard stats/analytics cache
-      invalidateCacheByPrefix('stats:').catch(() => {});
-      invalidateCacheByPrefix('analytics:').catch(() => {});
+    try {
+      await processAnalysis(complaint.complaintId);
+    } catch (err) {
+      console.error('[COMPLAINT POST] Analysis error:', err);
+    }
 
-      // Auto-create chat with initial citizen grievance text + first AI reply
-      (async () => {
+    // Refresh complaint object from DB to see if it was merged
+    const updatedComplaint = await Complaint.findOne({ complaintId });
+    const isMerged = updatedComplaint?.status === 'closed' && updatedComplaint?.aiSummary?.startsWith('Merged');
+
+    invalidateCacheByPrefix('stats:').catch(() => {});
+    invalidateCacheByPrefix('analytics:').catch(() => {});
+
+    // Auto-create chat with initial citizen grievance text + first AI reply
+    (async () => {
         try {
           const email = parsed.data.submitterEmail?.toLowerCase();
           if (email) {
@@ -152,9 +145,21 @@ export async function POST(req: NextRequest) {
           console.error('[COMPLAINT POST] Chat session auto-create error:', chatErr);
         }
       })();
-    });
 
-    return response;
+    const responseMsg = isMerged 
+      ? 'This issue has already been reported in your area. Our team is currently working on resolving it. You will receive an update once it is fixed.'
+      : 'Complaint submitted successfully. Your reference ID is ' + complaint.complaintId;
+
+    return successResponse(
+      {
+        complaintId: complaint.complaintId,
+        message: responseMsg,
+        merged: isMerged,
+        status: updatedComplaint?.status || complaint.status,
+      },
+      undefined,
+      201
+    );
   } catch (err) {
     console.error('[COMPLAINT CREATE ERROR]', err);
     return errorResponse('Internal server error', 500);

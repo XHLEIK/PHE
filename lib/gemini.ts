@@ -18,6 +18,8 @@ import { scheduleCall } from './call-scheduler';
 import { PHE_DEPARTMENT_IDS, PHE_ALLOWED_DEPARTMENTS } from './constants/phe';
 import { fetchWithGeminiKeyRotation } from './gemini-keys';
 
+import { getIncidentCache, setIncidentCache } from './redis';
+
 const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 const TIMEOUT_MS = 30_000;
@@ -247,13 +249,93 @@ export async function processAnalysis(complaintId: string): Promise<void> {
     ) {
       complaint.department = safeCategory;
     }
+    
+    // Auto-assign category
+    if (complaint.category === 'pending_ai' || !complaint.category) {
+      complaint.category = safeCategory;
+    }
 
     // Override priority with AI if currently default
     if (complaint.priority === 'medium' && analysis.priority) {
       complaint.priority = analysis.priority;
     }
 
-    await complaint.save();
+    // Geographic Incident Deduplication Flow
+    const loc = (complaint.district || complaint.location || complaint.state || 'unknown_location').toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const incidentKey = `${loc}|${safeCategory}|open`;
+    complaint.incidentKey = incidentKey;
+
+    const existingCache = await getIncidentCache(incidentKey);
+    let originalComplaint = null;
+
+    if (existingCache) {
+      originalComplaint = await Complaint.findOne({ complaintId: existingCache.incidentId });
+    }
+
+    // Fallback: If redis misses but Mongo has one active
+    if (!originalComplaint) {
+      originalComplaint = await Complaint.findOne({
+        incidentKey,
+        status: { $in: ['pending', 'triage', 'in_progress'] },
+        complaintId: { $ne: complaintId }
+      }).sort({ createdAt: 1 });
+    }
+
+    if (originalComplaint) {
+      // It's a duplicate. Attach user to the original incident.
+      const subscriber = {
+        userId: complaint.citizenId?.toString() || null,
+        phone: complaint.submitterPhone || null,
+        email: complaint.submitterEmail || null,
+      };
+
+      const isAlreadySubbed = originalComplaint.subscribers.some(
+        s => (s.phone && s.phone === subscriber.phone) || (s.email && s.email === subscriber.email)
+      );
+
+      if (!isAlreadySubbed) {
+        originalComplaint.subscribers.push(subscriber as any);
+        originalComplaint.complaintCount = (originalComplaint.complaintCount || 1) + 1;
+
+        // Auto-calculate priority
+        const count = originalComplaint.complaintCount;
+        if (count >= 10) originalComplaint.priority = 'critical';
+        else if (count >= 5) originalComplaint.priority = 'high';
+        // Otherwise keep whatever it is currently
+
+        await originalComplaint.save();
+
+        // Update cache with new count
+        await setIncidentCache(incidentKey, {
+          incidentId: originalComplaint.complaintId,
+          complaintCount: count,
+          priority: originalComplaint.priority
+        });
+      }
+
+      // Close the current complaint as merged
+      complaint.status = 'closed';
+      complaint.aiSummary = `Merged into incident ${originalComplaint.complaintId}. Original summary: ${analysis.summary}`;
+      await complaint.save();
+
+    } else {
+      // First report of this incident
+      complaint.subscribers = [{
+        userId: complaint.citizenId?.toString() || null,
+        phone: complaint.submitterPhone || null,
+        email: complaint.submitterEmail || null,
+      }] as any;
+      complaint.complaintCount = 1;
+      
+      await complaint.save();
+
+      // Add to Cache
+      await setIncidentCache(incidentKey, {
+        incidentId: complaint.complaintId,
+        complaintCount: 1,
+        priority: complaint.priority
+      });
+    }
 
     await createAuditEntry({
       action: 'complaint.analysis_completed',
@@ -267,10 +349,11 @@ export async function processAnalysis(complaintId: string): Promise<void> {
         confidence: analysis.confidence,
         modelVersion: analysis.modelVersion,
         promptHash: analysis.promptHash,
+        deduplicatedTo: originalComplaint ? originalComplaint.complaintId : null
       },
     });
 
-    console.log(`[GEMINI] ✅ Analysis complete for ${complaintId}: ${analysis.category} (${(analysis.confidence * 100).toFixed(0)}% confidence)`);
+    console.log(`[GEMINI] ✅ Analysis complete for ${complaintId}: ${analysis.category} (${(analysis.confidence * 100).toFixed(0)}% confidence). Dupe? ${!!originalComplaint}`);
 
     // Schedule AI call if citizen consented (fire-and-forget, DB-driven)
     setImmediate(() => {

@@ -137,6 +137,60 @@ export async function cached<T>(
   }
 }
 
+// ------------------ AI Strict Cache ------------------
+export async function getAICache(normalizedQuery: string): Promise<string | null> {
+  try {
+    return await getRedis().get<string>(`ai:query:${normalizedQuery}`);
+  } catch (err) {
+    console.warn('[CACHE] AI Cache get failed:', (err as Error).message);
+    return null;
+  }
+}
+
+export async function setAICache(normalizedQuery: string, response: string, ttlSeconds = 86400): Promise<void> {
+  try {
+    await getRedis().set(`ai:query:${normalizedQuery}`, response, { ex: ttlSeconds });
+  } catch (err) {
+    console.warn('[CACHE] AI Cache set failed:', (err as Error).message);
+  }
+}
+
+// ------------------ Incident Key Cache ------------------
+export interface IncidentCacheData {
+  incidentId: string;
+  complaintCount: number;
+  priority: string;
+}
+
+export async function getIncidentCache(incidentKey: string): Promise<IncidentCacheData | null> {
+  try {
+    return await getRedis().get<IncidentCacheData>(`incident:${incidentKey}`);
+  } catch (err) {
+    console.warn('[CACHE] Incident Cache get failed:', (err as Error).message);
+    return null;
+  }
+}
+
+export async function setIncidentCache(
+  incidentKey: string, 
+  data: IncidentCacheData, 
+  ttlSeconds = 86400
+): Promise<void> {
+  try {
+    await getRedis().set(`incident:${incidentKey}`, JSON.stringify(data), { ex: ttlSeconds });
+  } catch (err) {
+    console.warn('[CACHE] Incident Cache set failed:', (err as Error).message);
+  }
+}
+
+export async function invalidateIncidentCache(incidentKey: string): Promise<void> {
+  try {
+    await getRedis().del(`incident:${incidentKey}`);
+  } catch (err) {
+    console.warn('[CACHE] Incident Cache invalidate failed:', (err as Error).message);
+  }
+}
+
 /**
  * Invalidate a cached key.
  */

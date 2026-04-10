@@ -26,7 +26,7 @@ const CSP_STATIC_DIRECTIVES = [
   "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live",  // Next.js + Vercel Live
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
-  "img-src 'self' data: blob: https://res.cloudinary.com https://vercel.live https://vercel.com",
+  "img-src 'self' data: blob: https://res.cloudinary.com https://vercel.live https://vercel.com https://*.tile.openstreetmap.org https://cdnjs.cloudflare.com",
   "media-src 'self' blob: https://res.cloudinary.com",
   "frame-src 'self' https://vercel.live",
   // connect-src is built dynamically — see buildCsp()

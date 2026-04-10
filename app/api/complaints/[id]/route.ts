@@ -13,7 +13,8 @@ import {
 } from '@/lib/api-utils';
 import { v4 as uuidv4 } from 'uuid';
 import { notifyCitizenOnStatusChange } from '@/lib/citizen-notification-service';
-import { invalidateCacheByPrefix } from '@/lib/redis';
+import { invalidateCacheByPrefix, invalidateIncidentCache } from '@/lib/redis';
+import { sendResolutionEmail } from '@/lib/email';
 import { toAdminCtx, authorize, AuthorizationError, getRoleLevel } from '@/lib/rbac';
 
 // Mask sensitive contact fields — head_admin & cabinet see unmasked
@@ -228,6 +229,19 @@ export async function PATCH(
 
     // Fire citizen notification asynchronously (don't await — best effort)
     if (Object.keys(changes).length > 0) {
+      if (complaint.incidentKey && (update.status === 'resolved' || update.status === 'escalated')) {
+        invalidateIncidentCache(complaint.incidentKey).catch(console.error);
+        if (complaint.subscribers?.length) {
+          const actionMsg = update.status === 'resolved' 
+            ? 'A geographic issue in your area has been resolved by our regional team.' 
+            : 'A geographic issue in your area has been escalated to higher authorities.';
+            
+          Promise.all(complaint.subscribers.map((sub: any) => 
+            sub.email ? sendResolutionEmail(sub.email, complaint.complaintId, actionMsg) : Promise.resolve()
+          )).catch(err => console.error('[SUBSCRIBER EMAIL BULK ERROR]', err));
+        }
+      }
+
       notifyCitizenOnStatusChange(
         complaint._id.toString(),
         complaint.complaintId,
