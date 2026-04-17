@@ -52,8 +52,8 @@ export async function fetchWithGeminiKeyRotation(
       const res = await fetch(url, { ...optionsOptions, signal: controller.signal });
       clearTimeout(timeoutId);
       
-      // If quota exceeded or forbidden, retry with next key
-      if (res.status === 429 || res.status === 403) {
+      // If quota exceeded, forbidden, or service unavailable, retry with next key
+      if (res.status === 429 || res.status === 403 || res.status === 503) {
         console.warn(`[GEMINI] Key limit hit (status ${res.status}). Switching to key ${attempt + 2}/${keys.length}...`);
         lastResponse = res;
         attempt++;

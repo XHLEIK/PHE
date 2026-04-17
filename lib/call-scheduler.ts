@@ -22,7 +22,7 @@ const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY || '';
 const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET || '';
 const LIVEKIT_SIP_TRUNK_ID = process.env.LIVEKIT_SIP_TRUNK_ID || '';
 const TWILIO_NUMBER = process.env.TWILIO_NUMBER || '';
-const AGENT_HEALTH_URL = process.env.AGENT_HEALTH_URL || 'http://localhost:8081/health';
+const AGENT_HEALTH_URL = process.env.AGENT_HEALTH_URL || 'http://localhost:8082/';
 const MAX_CALLS_PER_COMPLAINT = Number(process.env.MAX_CALLS_PER_COMPLAINT || '3');
 const MAX_DAILY_CALLS = Number(process.env.MAX_DAILY_CALLS || '100');
 
